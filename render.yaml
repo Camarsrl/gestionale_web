@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: gestionale-web
+    env: python
+    plan: free
+    buildCommand: ""
+    startCommand: "gunicorn app:app"
+    envVars:
+      - key: MYSQL_HOST
+        value: __TO_FILL__
+      - key: MYSQL_USER
+        value: __TO_FILL__
+      - key: MYSQL_PASSWORD
+        value: __TO_FILL__
+      - key: MYSQL_DATABASE
+        value: __TO_FILL__
