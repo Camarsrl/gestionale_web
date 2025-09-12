@@ -21,12 +21,11 @@ from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
-from reportlab.lib.units import cm
+from reportlab.lib.units import cm, mm
 
 # --- 2. CONFIGURAZIONE INIZIALE ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 
-# Usa una directory persistente se disponibile (per Render), altrimenti la cartella corrente
 DATA_DIR = Path(os.environ.get('RENDER_DISK_PATH', '.'))
 UPLOAD_FOLDER = DATA_DIR / 'uploads_web'
 BACKUP_FOLDER = DATA_DIR / 'backup_web'
@@ -229,7 +228,7 @@ def edit_articolo(id):
         
     return render_template('edit.html', articolo=articolo, title="Modifica Articolo")
 
-@app.route('/uploads/<filename>')
+@app.route('/uploads/<path:filename>')
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
@@ -252,7 +251,7 @@ def import_excel():
     
     profiles_path = CONFIG_FOLDER / 'mappe_excel.json'
     if not profiles_path.exists():
-        flash('File profili (mappe_excel.json) non trovato. Impossibile importare.', 'danger')
+        flash('File profili (mappe_excel.json) non trovato. Caricalo nella cartella principale del progetto.', 'danger')
         return redirect(url_for('index'))
         
     with open(profiles_path, 'r', encoding='utf-8') as f:
@@ -273,7 +272,7 @@ def import_excel():
             
             added_count = 0
             for index, row in df.iterrows():
-                if not row.get(next(iter(col_map.keys()))): continue # Salta righe vuote
+                if not row.get(next(iter(col_map.keys()))): continue
 
                 new_art = Articolo()
                 form_data = {db_col: row.get(excel_col) for excel_col, db_col in col_map.items()}
@@ -340,18 +339,19 @@ def generate_pdf_buono():
     articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
     
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=20, leftMargin=20, topMargin=20, bottomMargin=20)
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=20*mm, leftMargin=20*mm, topMargin=20*mm, bottomMargin=20*mm)
     story = []
+    styles = getSampleStyleSheet()
     
-    story.append(Paragraph("Buono di Prelievo", getSampleStyleSheet()['h1']))
-    story.append(Spacer(1, 12))
+    story.append(Paragraph("Buono di Prelievo", styles['h1']))
+    story.append(Spacer(1, 1*cm))
     
     table_data = [['ID', 'Codice Articolo', 'Descrizione', 'Cliente', 'N. Colli']]
     for art in articoli:
         table_data.append([art.id, art.codice_articolo, art.descrizione or '', art.cliente or '', art.n_colli or ''])
     
-    t = Table(table_data)
-    t.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.grey), ('GRID', (0,0), (-1,-1), 1, colors.black)]))
+    t = Table(table_data, colWidths=[2*cm, 4*cm, 7*cm, 3*cm, 2*cm])
+    t.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.grey), ('GRID', (0,0), (-1,-1), 1, colors.black), ('VALIGN', (0,0), (-1,-1), 'MIDDLE')]))
     story.append(t)
     
     doc.build(story)
@@ -360,21 +360,68 @@ def generate_pdf_buono():
 
 @app.route('/pdf/ddt', methods=['POST'])
 def generate_pdf_ddt():
-    flash("Funzionalità DDT PDF non ancora implementata.", "info")
-    return redirect(url_for('index'))
+    ids = request.form.getlist('selected_ids')
+    if not ids:
+        flash("Seleziona almeno un articolo.", "warning")
+        return redirect(url_for('index'))
+    
+    articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
+    
+    prog_file = CONFIG_FOLDER / 'progressivi_ddt.json'
+    try:
+        with open(prog_file, 'r') as f:
+            progressivi = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        progressivi = {}
+    
+    anno_corrente = str(date.today().year)
+    num = progressivi.get(anno_corrente, 0) + 1
+    progressivi[anno_corrente] = num
+    
+    with open(prog_file, 'w') as f:
+        json.dump(progressivi, f)
+        
+    n_ddt = f"{num:03d}/{anno_corrente[-2:]}"
+
+    for art in articoli:
+        art.n_ddt_uscita = n_ddt
+        art.data_uscita = date.today()
+    db.session.commit()
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=20*mm, leftMargin=20*mm, topMargin=20*mm, bottomMargin=20*mm)
+    story = []
+    styles = getSampleStyleSheet()
+    story.append(Paragraph(f"Documento di Trasporto (DDT) N. {n_ddt}", styles['h1']))
+    story.append(Spacer(1, 1*cm))
+    story.append(Paragraph(f"Data: {date.today().strftime('%d/%m/%Y')}", styles['Normal']))
+    story.append(Spacer(1, 1*cm))
+    
+    table_data = [['ID', 'Codice Articolo', 'Descrizione', 'Cliente', 'N. Colli', 'Peso']]
+    for art in articoli:
+        table_data.append([art.id, art.codice_articolo, art.descrizione or '', art.cliente or '', art.n_colli or '', art.peso or ''])
+    
+    t = Table(table_data, colWidths=[1.5*cm, 3.5*cm, 6*cm, 3*cm, 1.5*cm, 1.5*cm])
+    t.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.grey), ('GRID', (0,0), (-1,-1), 1, colors.black)]))
+    story.append(t)
+    
+    doc.build(story)
+    buffer.seek(0)
+    flash(f"Articoli scaricati con DDT N. {n_ddt}", "success")
+    return send_file(buffer, as_attachment=True, download_name=f'DDT_{n_ddt.replace("/", "-")}.pdf', mimetype='application/pdf')
 
 @app.route('/articoli/delete_bulk', methods=['POST'])
 def bulk_delete():
     if session.get('role') != 'admin': abort(403)
     ids = request.form.getlist('selected_ids')
     if ids:
+        Allegato.query.filter(Allegato.articolo_id.in_(ids)).delete(synchronize_session=False)
         Articolo.query.filter(Articolo.id.in_(ids)).delete(synchronize_session=False)
         db.session.commit()
         flash(f"{len(ids)} articoli eliminati con successo.", "success")
     else:
         flash("Nessun articolo selezionato per l'eliminazione.", "warning")
     return redirect(url_for('index'))
-
 
 # --- 7. SETUP E AVVIO APPLICAZIONE ---
 def backup_database():
