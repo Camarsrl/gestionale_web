@@ -1,2 +1,7 @@
-flask
-mysql-connector-python
+Flask
+Flask-SQLAlchemy
+pandas
+openpyxl
+reportlab
+Werkzeug
+gunicorn
