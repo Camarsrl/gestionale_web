@@ -1,0 +1,84 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="card">
+    <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <h2 class="card-title mb-0">Giacenze Magazzino</h2>
+            {% if session.get('role') == 'admin' %}
+            <div class="d-flex gap-2">
+                <a href="{{ url_for('add_articolo') }}" class="btn btn-success">Aggiungi Articolo</a>
+                <a href="{{ url_for('import_excel') }}" class="btn btn-info">Importa da Excel</a>
+            </div>
+            {% endif %}
+        </div>
+
+        <form method="POST" id="bulk-actions-form">
+            <div class="d-flex flex-wrap gap-2 mb-3 border-top pt-3">
+                <button type="submit" formaction="{{ url_for('generate_pdf_buono') }}" class="btn btn-sm btn-outline-primary">Crea Buono PDF</button>
+                <button type="submit" formaction="{{ url_for('generate_pdf_ddt') }}" class="btn btn-sm btn-outline-secondary">Crea DDT PDF e Scarica</button>
+                <a href="#" id="export-selected" class="btn btn-sm btn-outline-warning">Esporta Selez. in Excel</a>
+                <a href="{{ url_for('export_excel') }}" class="btn btn-sm btn-outline-dark">Esporta Tutto in Excel</a>
+                {% if session.get('role') == 'admin' %}
+                <button type="submit" formaction="{{ url_for('bulk_delete') }}" onclick="return confirm('Sei sicuro di voler eliminare gli articoli selezionati?')" class="btn btn-sm btn-outline-danger ms-auto">Elimina Selezionati</button>
+                {% endif %}
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover table-sm align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 3%;"><input type="checkbox" id="select-all" class="form-check-input"></th>
+                            <th>ID</th>
+                            <th>Codice</th>
+                            <th>Descrizione</th>
+                            <th>Cliente</th>
+                            <th>Data Ingresso</th>
+                            <th>Stato</th>
+                            <th class="text-end">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for art in articoli %}
+                        <tr>
+                            <td><input type="checkbox" name="selected_ids" value="{{ art.id }}" class="item-checkbox form-check-input"></td>
+                            <td>{{ art.id }}</td>
+                            <td>{{ art.codice_articolo }}</td>
+                            <td>{{ (art.descrizione or '') | truncate(50) }}</td>
+                            <td>{{ art.cliente }}</td>
+                            <td>{{ art.data_ingresso.strftime('%d/%m/%Y') if art.data_ingresso else '' }}</td>
+                            <td><span class="badge bg-secondary">{{ art.stato }}</span></td>
+                            <td class="text-end">
+                                <a href="{{ url_for('edit_articolo', id=art.id) }}" class="btn btn-sm btn-outline-primary">Dettagli</a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center text-muted">Nessun articolo trovato.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('select-all').addEventListener('change', e => {
+    document.querySelectorAll('.item-checkbox').forEach(cb => cb.checked = e.target.checked);
+});
+
+document.getElementById('export-selected').addEventListener('click', e => {
+    e.preventDefault();
+    const ids = Array.from(document.querySelectorAll('.item-checkbox:checked')).map(cb => cb.value).join(',');
+    if (!ids) {
+        alert('Seleziona almeno un articolo da esportare.');
+        return;
+    }
+    window.location.href = `{{ url_for('export_excel') }}?ids=${ids}`;
+});
+</script>
+{% endblock %}
+
