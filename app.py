@@ -26,7 +26,7 @@ from reportlab.lib.units import cm, mm
 # --- 2. CONFIGURAZIONE INIZIALE ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 
-DATA_DIR = Path(os.environ.get('RENDER_DISK_PATH', '.'))
+DATA_DIR = Path(os.environ.get('RENDER_DISK_PATH', Path(__file__).resolve().parent))
 UPLOAD_FOLDER = DATA_DIR / 'uploads_web'
 BACKUP_FOLDER = DATA_DIR / 'backup_web'
 CONFIG_FOLDER = DATA_DIR / 'config'
@@ -158,8 +158,17 @@ def index():
     query = Articolo.query
     if session.get('role') == 'client':
         query = query.filter(Articolo.cliente.ilike(session['user']))
+    
+    # Logica Filtri
+    search_filters = {}
+    for key, value in request.args.items():
+        if value:
+            search_filters[key] = value
+            if hasattr(Articolo, key):
+                query = query.filter(getattr(Articolo, key).ilike(f"%{value}%"))
+
     articoli = query.order_by(Articolo.id.desc()).all()
-    return render_template('index.html', articoli=articoli)
+    return render_template('index.html', articoli=articoli, filters=search_filters)
 
 def populate_articolo_from_form(articolo, form):
     articolo.codice_articolo = form.get('codice_articolo')
@@ -251,7 +260,7 @@ def import_excel():
     
     profiles_path = CONFIG_FOLDER / 'mappe_excel.json'
     if not profiles_path.exists():
-        flash('File profili (mappe_excel.json) non trovato. Caricalo nella cartella principale del progetto.', 'danger')
+        flash('File profili (mappe_excel.json) non trovato. Crealo nella cartella di configurazione.', 'danger')
         return redirect(url_for('index'))
         
     with open(profiles_path, 'r', encoding='utf-8') as f:
@@ -272,7 +281,9 @@ def import_excel():
             
             added_count = 0
             for index, row in df.iterrows():
-                if not row.get(next(iter(col_map.keys()))): continue
+                # Salta righe vuote basandosi sulla prima colonna mappata
+                first_excel_col = next(iter(col_map.keys()))
+                if not row.get(first_excel_col): continue
 
                 new_art = Articolo()
                 form_data = {db_col: row.get(excel_col) for excel_col, db_col in col_map.items()}
@@ -288,7 +299,7 @@ def import_excel():
         except Exception as e:
             db.session.rollback()
             flash(f"Errore durante l'importazione: {e}", "danger")
-            logging.error(f"Errore import: {e}")
+            logging.error(f"Errore import: {e}", exc_info=True)
             return redirect(request.url)
 
     return render_template('import.html', profiles=profiles.keys())
@@ -360,6 +371,7 @@ def generate_pdf_buono():
 
 @app.route('/pdf/ddt', methods=['POST'])
 def generate_pdf_ddt():
+    if session.get('role') != 'admin': abort(403)
     ids = request.form.getlist('selected_ids')
     if not ids:
         flash("Seleziona almeno un articolo.", "warning")
@@ -415,7 +427,9 @@ def bulk_delete():
     if session.get('role') != 'admin': abort(403)
     ids = request.form.getlist('selected_ids')
     if ids:
+        # Prima elimina gli allegati per evitare problemi di foreign key
         Allegato.query.filter(Allegato.articolo_id.in_(ids)).delete(synchronize_session=False)
+        # Poi elimina gli articoli
         Articolo.query.filter(Articolo.id.in_(ids)).delete(synchronize_session=False)
         db.session.commit()
         flash(f"{len(ids)} articoli eliminati con successo.", "success")
@@ -459,5 +473,7 @@ if __name__ == '__main__':
     
     port = int(os.environ.get('PORT', 5001))
     app.run(host='0.0.0.0', port=port, debug=False)
+
+
 
 
