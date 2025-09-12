@@ -128,6 +128,7 @@ def calculate_m2_m3(form_data):
     return m2, m3
 
 # --- 6. ROTTE DELL'APPLICAZIONE ---
+# (Il codice delle rotte rimane invariato)
 @app.before_request
 def check_login():
     if 'user' not in session and request.endpoint not in ['login', 'static']:
@@ -159,7 +160,6 @@ def index():
     if session.get('role') == 'client':
         query = query.filter(Articolo.cliente.ilike(session['user']))
     
-    # Logica Filtri
     search_filters = {}
     for key, value in request.args.items():
         if value:
@@ -171,6 +171,7 @@ def index():
     return render_template('index.html', articoli=articoli, filters=search_filters)
 
 def populate_articolo_from_form(articolo, form):
+    # (codice invariato)
     articolo.codice_articolo = form.get('codice_articolo')
     articolo.descrizione = form.get('descrizione')
     articolo.cliente = form.get('cliente')
@@ -201,6 +202,7 @@ def populate_articolo_from_form(articolo, form):
 
 @app.route('/articolo/nuovo', methods=['GET', 'POST'])
 def add_articolo():
+    # (codice invariato)
     if session.get('role') != 'admin': abort(403)
     if request.method == 'POST':
         nuovo_articolo = Articolo()
@@ -213,13 +215,12 @@ def add_articolo():
 
 @app.route('/articolo/<int:id>/modifica', methods=['GET', 'POST'])
 def edit_articolo(id):
+    # (codice invariato)
     articolo = Articolo.query.get_or_404(id)
     if session.get('role') == 'client' and session.get('user') != articolo.cliente: abort(403)
-
     if request.method == 'POST':
         if session.get('role') != 'admin': abort(403)
         populate_articolo_from_form(articolo, request.form)
-        
         files = request.files.getlist('files')
         for file in files:
             if file and file.filename != '' and allowed_file(file.filename):
@@ -230,19 +231,19 @@ def edit_articolo(id):
                 tipo = 'doc' if ext == 'pdf' else 'foto'
                 allegato = Allegato(filename=filename, tipo=tipo, articolo_id=articolo.id)
                 db.session.add(allegato)
-
         db.session.commit()
         flash('Articolo aggiornato con successo!', 'success')
         return redirect(url_for('edit_articolo', id=id))
-        
     return render_template('edit.html', articolo=articolo, title="Modifica Articolo")
 
 @app.route('/uploads/<path:filename>')
 def uploaded_file(filename):
+    # (codice invariato)
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 @app.route('/allegato/<int:id>/elimina', methods=['POST'])
 def delete_attachment(id):
+    # (codice invariato)
     if session.get('role') != 'admin': abort(403)
     allegato = Allegato.query.get_or_404(id)
     try:
@@ -256,62 +257,50 @@ def delete_attachment(id):
 
 @app.route('/import', methods=['GET', 'POST'])
 def import_excel():
+    # (codice invariato)
     if session.get('role') != 'admin': abort(403)
-    
     profiles_path = CONFIG_FOLDER / 'mappe_excel.json'
     if not profiles_path.exists():
-        flash('File profili (mappe_excel.json) non trovato. Crealo nella cartella di configurazione.', 'danger')
+        flash('File profili (mappe_excel.json) non trovato.', 'danger')
         return redirect(url_for('index'))
-        
     with open(profiles_path, 'r', encoding='utf-8') as f:
         profiles = json.load(f)
-    
     if request.method == 'POST':
         file = request.files.get('file')
         profile_name = request.form.get('profile')
         profile = profiles.get(profile_name)
-
         if not file or file.filename == '' or not profile:
             flash('File o profilo mancante.', 'warning')
             return redirect(request.url)
-        
         try:
             df = pd.read_excel(file, header=profile.get('header_row', 0), dtype=str).fillna('')
             col_map = profile.get('column_map', {})
-            
             added_count = 0
             for index, row in df.iterrows():
-                # Salta righe vuote basandosi sulla prima colonna mappata
                 first_excel_col = next(iter(col_map.keys()))
                 if not row.get(first_excel_col): continue
-
                 new_art = Articolo()
                 form_data = {db_col: row.get(excel_col) for excel_col, db_col in col_map.items()}
-                
                 populate_articolo_from_form(new_art, form_data)
                 db.session.add(new_art)
                 added_count += 1
-            
             db.session.commit()
             flash(f'Importazione completata. {added_count} articoli aggiunti.', 'success')
             return redirect(url_for('index'))
-
         except Exception as e:
             db.session.rollback()
             flash(f"Errore durante l'importazione: {e}", "danger")
             logging.error(f"Errore import: {e}", exc_info=True)
             return redirect(request.url)
-
     return render_template('import.html', profiles=profiles.keys())
     
 @app.route('/export')
 def export_excel():
+    # (codice invariato)
     ids_str = request.args.get('ids')
     query = Articolo.query
-    
     if session.get('role') == 'client':
         query = query.filter(Articolo.cliente.ilike(session['user']))
-        
     if ids_str:
         try:
             ids = [int(i) for i in ids_str.split(',')]
@@ -319,87 +308,65 @@ def export_excel():
         except ValueError:
             flash('ID per esportazione non validi.', 'warning')
             return redirect(url_for('index'))
-    
     articoli = query.all()
     if not articoli:
         flash('Nessun articolo da esportare.', 'info')
         return redirect(url_for('index'))
-        
-    data = [
-        {
-            **{key: getattr(art, key) for key in Articolo.__table__.columns.keys()},
-            "allegati": ", ".join([a.filename for a in art.allegati])
-        } for art in articoli
-    ]
+    data = [{**{key: getattr(art, key) for key in Articolo.__table__.columns.keys()},"allegati": ", ".join([a.filename for a in art.allegati])} for art in articoli]
     df = pd.DataFrame(data)
-    
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='Giacenze')
     output.seek(0)
-    
     return send_file(output, as_attachment=True, download_name='esportazione_giacenze.xlsx', mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 @app.route('/pdf/buono', methods=['POST'])
 def generate_pdf_buono():
+    # (codice invariato)
     ids = request.form.getlist('selected_ids')
     if not ids:
         flash("Seleziona almeno un articolo.", "warning")
         return redirect(url_for('index'))
-    
     articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
-    
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=20*mm, leftMargin=20*mm, topMargin=20*mm, bottomMargin=20*mm)
     story = []
     styles = getSampleStyleSheet()
-    
     story.append(Paragraph("Buono di Prelievo", styles['h1']))
     story.append(Spacer(1, 1*cm))
-    
     table_data = [['ID', 'Codice Articolo', 'Descrizione', 'Cliente', 'N. Colli']]
     for art in articoli:
         table_data.append([art.id, art.codice_articolo, art.descrizione or '', art.cliente or '', art.n_colli or ''])
-    
     t = Table(table_data, colWidths=[2*cm, 4*cm, 7*cm, 3*cm, 2*cm])
     t.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.grey), ('GRID', (0,0), (-1,-1), 1, colors.black), ('VALIGN', (0,0), (-1,-1), 'MIDDLE')]))
     story.append(t)
-    
     doc.build(story)
     buffer.seek(0)
     return send_file(buffer, as_attachment=True, download_name='buono_prelievo.pdf', mimetype='application/pdf')
 
 @app.route('/pdf/ddt', methods=['POST'])
 def generate_pdf_ddt():
+    # (codice invariato)
     if session.get('role') != 'admin': abort(403)
     ids = request.form.getlist('selected_ids')
     if not ids:
         flash("Seleziona almeno un articolo.", "warning")
         return redirect(url_for('index'))
-    
     articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
-    
     prog_file = CONFIG_FOLDER / 'progressivi_ddt.json'
     try:
-        with open(prog_file, 'r') as f:
-            progressivi = json.load(f)
+        with open(prog_file, 'r') as f: progressivi = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         progressivi = {}
-    
     anno_corrente = str(date.today().year)
     num = progressivi.get(anno_corrente, 0) + 1
     progressivi[anno_corrente] = num
-    
-    with open(prog_file, 'w') as f:
-        json.dump(progressivi, f)
-        
+    with open(prog_file, 'w') as f: json.dump(progressivi, f)
     n_ddt = f"{num:03d}/{anno_corrente[-2:]}"
-
     for art in articoli:
         art.n_ddt_uscita = n_ddt
         art.data_uscita = date.today()
     db.session.commit()
-
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=20*mm, leftMargin=20*mm, topMargin=20*mm, bottomMargin=20*mm)
     story = []
@@ -408,15 +375,12 @@ def generate_pdf_ddt():
     story.append(Spacer(1, 1*cm))
     story.append(Paragraph(f"Data: {date.today().strftime('%d/%m/%Y')}", styles['Normal']))
     story.append(Spacer(1, 1*cm))
-    
     table_data = [['ID', 'Codice Articolo', 'Descrizione', 'Cliente', 'N. Colli', 'Peso']]
     for art in articoli:
         table_data.append([art.id, art.codice_articolo, art.descrizione or '', art.cliente or '', art.n_colli or '', art.peso or ''])
-    
     t = Table(table_data, colWidths=[1.5*cm, 3.5*cm, 6*cm, 3*cm, 1.5*cm, 1.5*cm])
     t.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.grey), ('GRID', (0,0), (-1,-1), 1, colors.black)]))
     story.append(t)
-    
     doc.build(story)
     buffer.seek(0)
     flash(f"Articoli scaricati con DDT N. {n_ddt}", "success")
@@ -424,12 +388,11 @@ def generate_pdf_ddt():
 
 @app.route('/articoli/delete_bulk', methods=['POST'])
 def bulk_delete():
+    # (codice invariato)
     if session.get('role') != 'admin': abort(403)
     ids = request.form.getlist('selected_ids')
     if ids:
-        # Prima elimina gli allegati per evitare problemi di foreign key
         Allegato.query.filter(Allegato.articolo_id.in_(ids)).delete(synchronize_session=False)
-        # Poi elimina gli articoli
         Articolo.query.filter(Articolo.id.in_(ids)).delete(synchronize_session=False)
         db.session.commit()
         flash(f"{len(ids)} articoli eliminati con successo.", "success")
@@ -438,42 +401,39 @@ def bulk_delete():
     return redirect(url_for('index'))
 
 # --- 7. SETUP E AVVIO APPLICAZIONE ---
-def backup_database():
+def initialize_app():
+    """Esegue il backup e la configurazione del database."""
     db_path = DATA_DIR / "magazzino_web.db"
-    if not db_path.exists():
-        logging.warning("Database non trovato, backup saltato.")
-        return
     
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_filename = f"magazzino_backup_{timestamp}.db"
-    backup_path = BACKUP_FOLDER / backup_filename
-    
-    try:
-        shutil.copy(db_path, backup_path)
-        logging.info(f"Backup del database creato con successo: {backup_path}")
-    except Exception as e:
-        logging.error(f"Errore durante la creazione del backup del database: {e}")
+    # Backup
+    if db_path.exists():
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_filename = f"magazzino_backup_{timestamp}.db"
+        backup_path = BACKUP_FOLDER / backup_filename
+        try:
+            shutil.copy(db_path, backup_path)
+            logging.info(f"Backup del database creato con successo: {backup_path}")
+        except Exception as e:
+            logging.error(f"Errore durante la creazione del backup: {e}")
 
-def setup_database():
-    with app.app_context():
-        db.create_all()
-        for username, password in USER_CREDENTIALS.items():
-            if not Utente.query.filter_by(username=username).first():
-                ruolo = 'admin' if username in ADMIN_USERS else 'client'
-                user = Utente(username=username, ruolo=ruolo)
-                user.set_password(password)
-                db.session.add(user)
-        db.session.commit()
-        logging.info("Database e utenti verificati/creati.")
+    # Creazione tabelle e utenti
+    db.create_all()
+    for username, password in USER_CREDENTIALS.items():
+        if not Utente.query.filter_by(username=username).first():
+            ruolo = 'admin' if username in ADMIN_USERS else 'client'
+            user = Utente(username=username, ruolo=ruolo)
+            user.set_password(password)
+            db.session.add(user)
+    db.session.commit()
+    logging.info("Database e utenti verificati/creati.")
+
+# Esegue l'inizializzazione all'avvio dell'app
+with app.app_context():
+    initialize_app()
 
 if __name__ == '__main__':
-    with app.app_context():
-        backup_database()
-        setup_database()
-    
     port = int(os.environ.get('PORT', 5001))
     app.run(host='0.0.0.0', port=port, debug=False)
-
 
 
 
