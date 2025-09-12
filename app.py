@@ -358,10 +358,8 @@ def generate_pdf_buono():
     buffer.seek(0)
     return send_file(buffer, as_attachment=True, download_name='buono_prelievo.pdf', mimetype='application/pdf')
 
-# Aggiungere qui la rotta per il DDT
 @app.route('/pdf/ddt', methods=['POST'])
 def generate_pdf_ddt():
-    # Logica simile a generate_pdf_buono
     flash("Funzionalità DDT PDF non ancora implementata.", "info")
     return redirect(url_for('index'))
 
