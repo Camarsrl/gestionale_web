@@ -128,7 +128,6 @@ def calculate_m2_m3(form_data):
     return m2, m3
 
 # --- 6. ROTTE DELL'APPLICAZIONE ---
-# (Il codice delle rotte rimane invariato)
 @app.before_request
 def check_login():
     if 'user' not in session and request.endpoint not in ['login', 'static']:
@@ -171,7 +170,6 @@ def index():
     return render_template('index.html', articoli=articoli, filters=search_filters)
 
 def populate_articolo_from_form(articolo, form):
-    # (codice invariato)
     articolo.codice_articolo = form.get('codice_articolo')
     articolo.descrizione = form.get('descrizione')
     articolo.cliente = form.get('cliente')
@@ -202,7 +200,6 @@ def populate_articolo_from_form(articolo, form):
 
 @app.route('/articolo/nuovo', methods=['GET', 'POST'])
 def add_articolo():
-    # (codice invariato)
     if session.get('role') != 'admin': abort(403)
     if request.method == 'POST':
         nuovo_articolo = Articolo()
@@ -215,7 +212,6 @@ def add_articolo():
 
 @app.route('/articolo/<int:id>/modifica', methods=['GET', 'POST'])
 def edit_articolo(id):
-    # (codice invariato)
     articolo = Articolo.query.get_or_404(id)
     if session.get('role') == 'client' and session.get('user') != articolo.cliente: abort(403)
     if request.method == 'POST':
@@ -238,12 +234,10 @@ def edit_articolo(id):
 
 @app.route('/uploads/<path:filename>')
 def uploaded_file(filename):
-    # (codice invariato)
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 @app.route('/allegato/<int:id>/elimina', methods=['POST'])
 def delete_attachment(id):
-    # (codice invariato)
     if session.get('role') != 'admin': abort(403)
     allegato = Allegato.query.get_or_404(id)
     try:
@@ -257,7 +251,6 @@ def delete_attachment(id):
 
 @app.route('/import', methods=['GET', 'POST'])
 def import_excel():
-    # (codice invariato)
     if session.get('role') != 'admin': abort(403)
     profiles_path = CONFIG_FOLDER / 'mappe_excel.json'
     if not profiles_path.exists():
@@ -296,7 +289,6 @@ def import_excel():
     
 @app.route('/export')
 def export_excel():
-    # (codice invariato)
     ids_str = request.args.get('ids')
     query = Articolo.query
     if session.get('role') == 'client':
@@ -322,7 +314,6 @@ def export_excel():
 
 @app.route('/pdf/buono', methods=['POST'])
 def generate_pdf_buono():
-    # (codice invariato)
     ids = request.form.getlist('selected_ids')
     if not ids:
         flash("Seleziona almeno un articolo.", "warning")
@@ -346,7 +337,6 @@ def generate_pdf_buono():
 
 @app.route('/pdf/ddt', methods=['POST'])
 def generate_pdf_ddt():
-    # (codice invariato)
     if session.get('role') != 'admin': abort(403)
     ids = request.form.getlist('selected_ids')
     if not ids:
@@ -388,7 +378,6 @@ def generate_pdf_ddt():
 
 @app.route('/articoli/delete_bulk', methods=['POST'])
 def bulk_delete():
-    # (codice invariato)
     if session.get('role') != 'admin': abort(403)
     ids = request.form.getlist('selected_ids')
     if ids:
@@ -434,6 +423,7 @@ with app.app_context():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     app.run(host='0.0.0.0', port=port, debug=False)
+
 
 
 
