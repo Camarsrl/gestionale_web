@@ -1,0 +1,28 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="card p-4">
+    <h2 class="mb-4">Importa Articoli da Excel</h2>
+
+    <form method="post" enctype="multipart/form-data">
+        <div class="mb-3">
+            <label for="file" class="form-label">Seleziona file Excel (.xlsx, .xls)</label>
+            <input class="form-control" type="file" id="file" name="file" required accept=".xlsx,.xls,.xlsm">
+        </div>
+        
+        <div class="mb-3">
+            <label for="profile" class="form-label">Seleziona Profilo di Mappatura</label>
+            <select class="form-select" id="profile" name="profile" required>
+                {% for profile_name in profiles %}
+                <option value="{{ profile_name }}">{{ profile_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="mt-4">
+            <button type="submit" class="btn btn-primary">Avvia Importazione</button>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">Annulla</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
