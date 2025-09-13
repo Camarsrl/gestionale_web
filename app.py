@@ -391,7 +391,7 @@ def bulk_delete():
 
 # --- 7. SETUP E AVVIO APPLICAZIONE ---
 def initialize_app():
-    """Esegue il backup e la configurazione del database."""
+    """Esegue il backup, la configurazione del database e la copia dei file di configurazione."""
     db_path = DATA_DIR / "magazzino_web.db"
     
     # Backup
@@ -404,6 +404,20 @@ def initialize_app():
             logging.info(f"Backup del database creato con successo: {backup_path}")
         except Exception as e:
             logging.error(f"Errore durante la creazione del backup: {e}")
+
+    # Copia file di configurazione se non esistono
+    source_dir = Path(__file__).resolve().parent
+    config_files = ['mappe_excel.json', 'progressivi_ddt.json']
+    for filename in config_files:
+        source_path = source_dir / filename
+        dest_path = CONFIG_FOLDER / filename
+        if source_path.exists() and not dest_path.exists():
+            try:
+                shutil.copy(source_path, dest_path)
+                logging.info(f"Copiato file di configurazione '{filename}' in {CONFIG_FOLDER}")
+            except Exception as e:
+                logging.error(f"Impossibile copiare il file di configurazione '{filename}': {e}")
+
 
     # Creazione tabelle e utenti
     db.create_all()
@@ -423,6 +437,8 @@ with app.app_context():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     app.run(host='0.0.0.0', port=port, debug=False)
+
+
 
 
 
