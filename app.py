@@ -17,7 +17,7 @@ from sqlalchemy import or_
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 import pandas as pd
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, landscape
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
@@ -167,15 +167,9 @@ def index():
     if session.get('role') == 'client':
         query = query.filter(Articolo.cliente.ilike(session['user']))
     
-    # Logica dei filtri
-    # ...
-
     articoli = query.order_by(Articolo.id.desc()).all()
     
-    # Calcolo dei totali per gli articoli in giacenza
-    totali = {
-        'colli': 0, 'peso': 0.0, 'm2': 0.0, 'm3': 0.0
-    }
+    totali = { 'colli': 0, 'peso': 0.0, 'm2': 0.0, 'm3': 0.0 }
     articoli_in_giacenza = [art for art in articoli if not art.n_ddt_uscita]
     for art in articoli_in_giacenza:
         totali['colli'] += art.n_colli or 0
@@ -330,73 +324,135 @@ def export_excel():
 
 @app.route('/pdf/buono', methods=['POST'])
 def generate_pdf_buono():
+    # Questa rotta ora reindirizza alla pagina di setup
     ids = request.form.getlist('selected_ids')
     if not ids:
-        flash("Seleziona almeno un articolo.", "warning")
+        flash("Seleziona almeno un articolo per creare il buono.", "warning")
         return redirect(url_for('index'))
-    articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=20*mm, leftMargin=20*mm, topMargin=20*mm, bottomMargin=20*mm)
-    story = []
-    styles = getSampleStyleSheet()
-    story.append(Paragraph("Buono di Prelievo", styles['h1']))
-    story.append(Spacer(1, 1*cm))
-    table_data = [['ID', 'Codice Articolo', 'Descrizione', 'Cliente', 'N. Colli']]
-    for art in articoli:
-        table_data.append([art.id, art.codice_articolo, art.descrizione or '', art.cliente or '', art.n_colli or ''])
-    t = Table(table_data, colWidths=[2*cm, 4*cm, 7*cm, 3*cm, 2*cm])
-    t.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.grey), ('GRID', (0,0), (-1,-1), 1, colors.black), ('VALIGN', (0,0), (-1,-1), 'MIDDLE')]))
-    story.append(t)
-    doc.build(story)
-    buffer.seek(0)
-    return send_file(buffer, as_attachment=True, download_name='buono_prelievo.pdf', mimetype='application/pdf')
+    return redirect(url_for('buono_setup', ids=",".join(ids)))
 
-@app.route('/pdf/ddt', methods=['POST'])
-def generate_pdf_ddt():
+@app.route('/buono/setup', methods=['GET', 'POST'])
+def buono_setup():
     if session.get('role') != 'admin': abort(403)
-    ids = request.form.getlist('selected_ids')
-    if not ids:
-        flash("Seleziona almeno un articolo.", "warning")
+    ids_str = request.args.get('ids')
+    if not ids_str:
         return redirect(url_for('index'))
+    
+    ids = [int(i) for i in ids_str.split(',')]
     articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
-    prog_file = CONFIG_FOLDER / 'progressivi_ddt.json'
-    try:
-        with open(prog_file, 'r') as f: progressivi = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        progressivi = {}
-    anno_corrente = str(date.today().year)
-    num = progressivi.get(anno_corrente, 0) + 1
-    progressivi[anno_corrente] = num
-    with open(prog_file, 'w') as f: json.dump(progressivi, f)
-    n_ddt = f"{num:03d}/{anno_corrente[-2:]}"
-    for art in articoli:
-        art.n_ddt_uscita = n_ddt
-        art.data_uscita = date.today()
-    db.session.commit()
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=20*mm, leftMargin=20*mm, topMargin=20*mm, bottomMargin=20*mm)
-    story = []
-    styles = getSampleStyleSheet()
-    story.append(Paragraph(f"Documento di Trasporto (DDT) N. {n_ddt}", styles['h1']))
-    story.append(Spacer(1, 1*cm))
-    story.append(Paragraph(f"Data: {date.today().strftime('%d/%m/%Y')}", styles['Normal']))
-    story.append(Spacer(1, 1*cm))
-    table_data = [['ID', 'Codice Articolo', 'Descrizione', 'Cliente', 'N. Colli', 'Peso']]
-    for art in articoli:
-        table_data.append([art.id, art.codice_articolo, art.descrizione or '', art.cliente or '', art.n_colli or '', art.peso or ''])
-    t = Table(table_data, colWidths=[1.5*cm, 3.5*cm, 6*cm, 3*cm, 1.5*cm, 1.5*cm])
-    t.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.grey), ('GRID', (0,0), (-1,-1), 1, colors.black)]))
-    story.append(t)
-    doc.build(story)
-    buffer.seek(0)
-    flash(f"Articoli scaricati con DDT N. {n_ddt}", "success")
-    return send_file(buffer, as_attachment=True, download_name=f'DDT_{n_ddt.replace("/", "-")}.pdf', mimetype='application/pdf')
+    primo_articolo = articoli[0] if articoli else None
+
+    if request.method == 'POST':
+        buono_n = request.form.get('buono_n')
+        if not buono_n:
+            flash("Il numero del buono è obbligatorio.", "danger")
+            return render_template('buono_setup.html', articoli=articoli, ids=ids_str, primo_articolo=primo_articolo)
+        
+        for art in articoli:
+            art.buono_n = buono_n
+        db.session.commit()
+        
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4)
+        story = []
+        styles = getSampleStyleSheet()
+        story.append(Paragraph(f"Buono di Prelievo N. {buono_n}", styles['h1']))
+        story.append(Spacer(1, 1*cm))
+        
+        table_data = [['ID', 'Codice Articolo', 'Descrizione', 'Quantità']]
+        for art in articoli:
+            table_data.append([art.id, art.codice_articolo, art.descrizione or '', art.n_colli or 1])
+        
+        t = Table(table_data)
+        t.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.grey), ('GRID', (0,0), (-1,-1), 1, colors.black)]))
+        story.append(t)
+        doc.build(story)
+        buffer.seek(0)
+        
+        flash(f"Buono N. {buono_n} assegnato agli articoli.", "success")
+        return send_file(buffer, as_attachment=True, download_name=f'Buono_{buono_n}.pdf', mimetype='application/pdf')
+
+    return render_template('buono_setup.html', articoli=articoli, ids=ids_str, primo_articolo=primo_articolo)
+
+
+@app.route('/ddt/setup', methods=['GET', 'POST'])
+def ddt_setup():
+    if session.get('role') != 'admin': abort(403)
+    ids_str = request.args.get('ids')
+    if not ids_str: return redirect(url_for('index'))
+    
+    ids = [int(i) for i in ids_str.split(',')]
+    articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
+    
+    destinatari_path = CONFIG_FOLDER / 'destinatari_saved.json'
+    destinatari = {}
+    if destinatari_path.exists():
+        with open(destinatari_path, 'r', encoding='utf-8') as f:
+            destinatari = json.load(f)
+
+    if request.method == 'POST':
+        data_uscita = parse_date_safe(request.form.get('data_uscita')) or date.today()
+        
+        prog_file = CONFIG_FOLDER / 'progressivi_ddt.json'
+        try:
+            with open(prog_file, 'r') as f: progressivi = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            progressivi = {}
+        anno = str(data_uscita.year)
+        num = progressivi.get(anno, 0) + 1
+        progressivi[anno] = num
+        with open(prog_file, 'w') as f: json.dump(progressivi, f)
+        n_ddt = f"{num:03d}/{anno[-2:]}"
+
+        for art in articoli:
+            art.n_ddt_uscita = n_ddt
+            art.data_uscita = data_uscita
+            art.stato = 'Uscito'
+        db.session.commit()
+        
+        # Generazione PDF
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4)
+        story = []
+        styles = getSampleStyleSheet()
+        story.append(Paragraph(f"DDT N. {n_ddt}", styles['h1']))
+        story.append(Paragraph(f"Data: {data_uscita.strftime('%d/%m/%Y')}", styles['Normal']))
+        # Aggiungere altri dettagli del DDT
+        doc.build(story) # Semplificato, da completare con la logica PDF
+        buffer.seek(0)
+        
+        flash(f"Articoli scaricati con DDT N. {n_ddt}", "success")
+        return send_file(buffer, as_attachment=True, download_name=f'DDT_{n_ddt.replace("/", "-")}.pdf', mimetype='application/pdf')
+
+    return render_template('ddt_setup.html', articoli=articoli, ids=ids_str, destinatari=destinatari)
+
+@app.route('/etichetta', methods=['GET', 'POST'])
+def etichetta_manuale():
+    if session.get('role') != 'admin': abort(403)
+    if request.method == 'POST':
+        # Logica per generare il PDF dell'etichetta
+        data = request.form.to_dict()
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=(100*mm, 62*mm), leftMargin=5*mm, rightMargin=5*mm, topMargin=5*mm, bottomMargin=5*mm)
+        story = []
+        styles = getSampleStyleSheet()
+        
+        # Aggiungere contenuto al PDF
+        for key, value in data.items():
+            if value:
+                story.append(Paragraph(f"<b>{key.replace('_', ' ').title()}:</b> {value}", styles['Normal']))
+
+        doc.build(story)
+        buffer.seek(0)
+        return send_file(buffer, as_attachment=True, download_name='etichetta.pdf', mimetype='application/pdf')
+    return render_template('etichetta_manuale.html')
 
 @app.route('/articoli/delete_bulk', methods=['POST'])
 def bulk_delete():
     if session.get('role') != 'admin': abort(403)
-    ids = request.form.getlist('selected_ids')
-    if ids:
+    ids_str = request.form.get('selected_ids')
+    if ids_str:
+        ids = [int(i) for i in ids_str.split(',')]
         Allegato.query.filter(Allegato.articolo_id.in_(ids)).delete(synchronize_session=False)
         Articolo.query.filter(Articolo.id.in_(ids)).delete(synchronize_session=False)
         db.session.commit()
@@ -404,6 +460,30 @@ def bulk_delete():
     else:
         flash("Nessun articolo selezionato per l'eliminazione.", "warning")
     return redirect(url_for('index'))
+
+@app.route('/articoli/edit_multiple', methods=['GET', 'POST'])
+def edit_multiple():
+    if session.get('role') != 'admin': abort(403)
+    ids_str = request.args.get('ids')
+    if not ids_str:
+        flash("Nessun articolo selezionato per la modifica.", "warning")
+        return redirect(url_for('index'))
+    
+    ids = [int(i) for i in ids_str.split(',')]
+    articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
+
+    if request.method == 'POST':
+        for art in articoli:
+            for field, value in request.form.items():
+                if f"update_{field}" in request.form and value:
+                    # Applica la modifica
+                    setattr(art, field, value)
+        db.session.commit()
+        flash(f"{len(articoli)} articoli aggiornati.", "success")
+        return redirect(url_for('index'))
+
+    return render_template('edit_multiple.html', articoli=articoli, ids=ids_str)
+
 
 # --- 7. SETUP E AVVIO APPLICAZIONE ---
 def initialize_app():
@@ -421,7 +501,7 @@ def initialize_app():
             logging.error(f"Errore durante la creazione del backup: {e}")
 
     source_dir = Path(__file__).resolve().parent
-    config_files = ['mappe_excel.json', 'progressivi_ddt.json']
+    config_files = ['mappe_excel.json', 'progressivi_ddt.json', 'destinatari_saved.json']
     for filename in config_files:
         source_path = source_dir / filename
         dest_path = CONFIG_FOLDER / filename
