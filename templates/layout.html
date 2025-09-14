@@ -9,31 +9,29 @@
         body { background-color: #f8f9fa; }
         .card { border: none; box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, .1); }
         .table-hover>tbody>tr:hover { background-color: #f1f1f1; }
-        .navbar-brand img {
-            max-height: 40px;
-        }
+        .navbar-brand img { max-height: 40px; }
+        .table th { white-space: nowrap; }
     </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container-fluid">
             <a class="navbar-brand d-flex align-items-center" href="{{ url_for('index') }}">
-                {% if logo_url %}
-                    <img src="{{ logo_url }}" alt="Logo Camar" class="me-2">
-                {% endif %}
+                {% if logo_url %}<img src="{{ logo_url }}" alt="Logo Camar" class="me-2">{% endif %}
                 Gestionale Camar
             </a>
             {% if 'user' in session %}
             <div class="d-flex align-items-center text-white">
-                <span class="navbar-text me-3">
-                    Utente: <strong>{{ session.user }}</strong> ({{ session.role }})
-                </span>
+                 {% if session.role == 'admin' %}
+                 <a href="{{ url_for('gestione_destinatari') }}" class="btn btn-outline-info me-3">Gestisci Destinatari</a>
+                 {% endif %}
+                <span class="navbar-text me-3">Utente: <strong>{{ session.user }}</strong> ({{ session.role }})</span>
                 <a href="{{ url_for('logout') }}" class="btn btn-outline-light">Logout</a>
             </div>
             {% endif %}
         </div>
     </nav>
-    <main class="container my-4">
+    <main class="container-fluid my-4">
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
         {% for category, message in messages %}
@@ -50,3 +48,5 @@
     {% block extra_js %}{% endblock %}
 </body>
 </html>
+
+
