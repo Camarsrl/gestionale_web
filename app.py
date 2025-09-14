@@ -26,13 +26,13 @@ from reportlab.lib.units import cm, mm
 # --- 2. CONFIGURAZIONE INIZIALE ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 
-# Gestione robusta dei percorsi per Render e locale
 DATA_DIR = Path(os.environ.get('RENDER_DISK_PATH', Path(__file__).resolve().parent))
 UPLOAD_FOLDER = DATA_DIR / 'uploads_web'
 BACKUP_FOLDER = DATA_DIR / 'backup_web'
 CONFIG_FOLDER = DATA_DIR / 'config'
+STATIC_FOLDER = Path(__file__).resolve().parent / 'static'
 
-for folder in [UPLOAD_FOLDER, BACKUP_FOLDER, CONFIG_FOLDER]:
+for folder in [UPLOAD_FOLDER, BACKUP_FOLDER, CONFIG_FOLDER, STATIC_FOLDER]:
     os.makedirs(folder, exist_ok=True)
 
 app = Flask(__name__)
@@ -43,6 +43,14 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 ALLOWED_EXTENSIONS = {'pdf', 'jpg', 'jpeg', 'png', 'xlsx', 'xls'}
 
 db = SQLAlchemy(app)
+
+# Inietta globalmente l'URL del logo nei template
+@app.context_processor
+def inject_logo_url():
+    logo_filename = 'logo camar.jpg'
+    if (STATIC_FOLDER / logo_filename).exists():
+        return dict(logo_url=url_for('static', filename=logo_filename))
+    return dict(logo_url=None)
 
 # --- 3. GESTIONE UTENTI E RUOLI ---
 USER_CREDENTIALS = {
@@ -433,11 +441,3 @@ with app.app_context():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     app.run(host='0.0.0.0', port=port, debug=False)
-
-
-
-
-
-
-
-
