@@ -26,6 +26,7 @@ from reportlab.lib.units import cm, mm
 # --- 2. CONFIGURAZIONE INIZIALE ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 
+# Gestione robusta dei percorsi per Render e locale
 DATA_DIR = Path(os.environ.get('RENDER_DISK_PATH', Path(__file__).resolve().parent))
 UPLOAD_FOLDER = DATA_DIR / 'uploads_web'
 BACKUP_FOLDER = DATA_DIR / 'backup_web'
@@ -394,7 +395,6 @@ def initialize_app():
     """Esegue il backup, la configurazione del database e la copia dei file di configurazione."""
     db_path = DATA_DIR / "magazzino_web.db"
     
-    # Backup
     if db_path.exists():
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_filename = f"magazzino_backup_{timestamp}.db"
@@ -405,7 +405,6 @@ def initialize_app():
         except Exception as e:
             logging.error(f"Errore durante la creazione del backup: {e}")
 
-    # Copia file di configurazione se non esistono
     source_dir = Path(__file__).resolve().parent
     config_files = ['mappe_excel.json', 'progressivi_ddt.json']
     for filename in config_files:
@@ -418,8 +417,6 @@ def initialize_app():
             except Exception as e:
                 logging.error(f"Impossibile copiare il file di configurazione '{filename}': {e}")
 
-
-    # Creazione tabelle e utenti
     db.create_all()
     for username, password in USER_CREDENTIALS.items():
         if not Utente.query.filter_by(username=username).first():
@@ -430,13 +427,14 @@ def initialize_app():
     db.session.commit()
     logging.info("Database e utenti verificati/creati.")
 
-# Esegue l'inizializzazione all'avvio dell'app
 with app.app_context():
     initialize_app()
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     app.run(host='0.0.0.0', port=port, debug=False)
+
+
 
 
 
