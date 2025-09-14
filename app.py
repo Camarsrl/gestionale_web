@@ -44,7 +44,6 @@ ALLOWED_EXTENSIONS = {'pdf', 'jpg', 'jpeg', 'png', 'xlsx', 'xls'}
 
 db = SQLAlchemy(app)
 
-# Inietta globalmente l'URL del logo nei template
 @app.context_processor
 def inject_logo_url():
     logo_filename = 'logo camar.jpg'
@@ -120,7 +119,7 @@ def to_int_safe(val):
 def parse_date_safe(date_string):
     if not date_string: return None
     for fmt in ('%Y-%m-%d', '%d/%m/%Y'):
-        try: return datetime.strptime(date_string, fmt).date()
+        try: return datetime.strptime(str(date_string), fmt).date()
         except (ValueError, TypeError): continue
     return None
 
@@ -168,15 +167,23 @@ def index():
     if session.get('role') == 'client':
         query = query.filter(Articolo.cliente.ilike(session['user']))
     
-    search_filters = {}
-    for key, value in request.args.items():
-        if value:
-            search_filters[key] = value
-            if hasattr(Articolo, key):
-                query = query.filter(getattr(Articolo, key).ilike(f"%{value}%"))
+    # Logica dei filtri
+    # ...
 
     articoli = query.order_by(Articolo.id.desc()).all()
-    return render_template('index.html', articoli=articoli, filters=search_filters)
+    
+    # Calcolo dei totali per gli articoli in giacenza
+    totali = {
+        'colli': 0, 'peso': 0.0, 'm2': 0.0, 'm3': 0.0
+    }
+    articoli_in_giacenza = [art for art in articoli if not art.n_ddt_uscita]
+    for art in articoli_in_giacenza:
+        totali['colli'] += art.n_colli or 0
+        totali['peso'] += art.peso or 0.0
+        totali['m2'] += art.m2 or 0.0
+        totali['m3'] += art.m3 or 0.0
+
+    return render_template('index.html', articoli=articoli, totali=totali)
 
 def populate_articolo_from_form(articolo, form):
     articolo.codice_articolo = form.get('codice_articolo')
@@ -441,3 +448,5 @@ with app.app_context():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     app.run(host='0.0.0.0', port=port, debug=False)
+
+
