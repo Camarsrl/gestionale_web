@@ -25,6 +25,7 @@
                  {% if session.role == 'admin' %}
                  <a href="{{ url_for('gestione_destinatari') }}" class="btn btn-outline-info me-3">Gestisci Destinatari</a>
                  {% endif %}
+                 <a href="#" class="btn btn-outline-secondary btn-sm me-3" data-bs-toggle="modal" data-bs-target="#helpModal">? Guida</a>
                 <span class="navbar-text me-3">Utente: <strong>{{ session.user }}</strong> ({{ session.role }})</span>
                 <a href="{{ url_for('logout') }}" class="btn btn-outline-light">Logout</a>
             </div>
@@ -44,9 +45,31 @@
         {% endwith %}
         {% block content %}{% endblock %}
     </main>
+    
+    <!-- Help Modal -->
+    <div class="modal fade" id="helpModal" tabindex="-1" aria-labelledby="helpModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="helpModalLabel">Guida Rapida al Flusso di Lavoro</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p><strong>Flusso Consigliato:</strong></p>
+            <ol>
+              <li><strong>Buono di Prelievo:</strong> Seleziona gli articoli e clicca su "Crea Buono". Questo è un documento <strong>interno</strong> per preparare la merce e assegna un numero di buono. Gli articoli restano in giacenza.</li>
+              <li><strong>DDT di Uscita:</strong> Quando la merce è pronta per essere spedita, seleziona gli stessi articoli e clicca su "Crea DDT". Questo genera il documento di trasporto <strong>ufficiale</strong>, scarica gli articoli dal magazzino (impostando data e DDT di uscita) e li marca come "Uscito".</li>
+            </ol>
+            <p>Le due operazioni sono separate e possono essere eseguite in momenti diversi.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>
+
 
 
