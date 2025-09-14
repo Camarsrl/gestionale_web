@@ -314,7 +314,7 @@ def export_excel():
     if not articoli:
         flash('Nessun articolo da esportare.', 'info')
         return redirect(url_for('index'))
-    data = [{**{key: getattr(art, key) for key in Articolo.__table__.columns.keys()},"allegati": ", ".join([a.filename for a in art.allegati])} for art in articoli]
+    data = [{**{key: getattr(art, key) for key in Articolo.__table__.columns.keys() if key != 'allegati'},"allegati": ", ".join([a.filename for a in art.allegati])} for art in articoli]
     df = pd.DataFrame(data)
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
@@ -322,21 +322,11 @@ def export_excel():
     output.seek(0)
     return send_file(output, as_attachment=True, download_name='esportazione_giacenze.xlsx', mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
-@app.route('/pdf/buono', methods=['POST'])
-def generate_pdf_buono():
-    # Questa rotta ora reindirizza alla pagina di setup
-    ids = request.form.getlist('selected_ids')
-    if not ids:
-        flash("Seleziona almeno un articolo per creare il buono.", "warning")
-        return redirect(url_for('index'))
-    return redirect(url_for('buono_setup', ids=",".join(ids)))
-
 @app.route('/buono/setup', methods=['GET', 'POST'])
 def buono_setup():
     if session.get('role') != 'admin': abort(403)
-    ids_str = request.args.get('ids')
-    if not ids_str:
-        return redirect(url_for('index'))
+    ids_str = request.args.get('ids', '')
+    if not ids_str: return redirect(url_for('index'))
     
     ids = [int(i) for i in ids_str.split(',')]
     articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
@@ -348,47 +338,38 @@ def buono_setup():
             flash("Il numero del buono è obbligatorio.", "danger")
             return render_template('buono_setup.html', articoli=articoli, ids=ids_str, primo_articolo=primo_articolo)
         
-        for art in articoli:
-            art.buono_n = buono_n
+        for art in articoli: art.buono_n = buono_n
         db.session.commit()
         
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=A4)
-        story = []
-        styles = getSampleStyleSheet()
+        story, styles = [], getSampleStyleSheet()
         story.append(Paragraph(f"Buono di Prelievo N. {buono_n}", styles['h1']))
         story.append(Spacer(1, 1*cm))
         
         table_data = [['ID', 'Codice Articolo', 'Descrizione', 'Quantità']]
-        for art in articoli:
-            table_data.append([art.id, art.codice_articolo, art.descrizione or '', art.n_colli or 1])
+        for art in articoli: table_data.append([art.id, art.codice_articolo, art.descrizione or '', art.n_colli or 1])
         
-        t = Table(table_data)
-        t.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.grey), ('GRID', (0,0), (-1,-1), 1, colors.black)]))
-        story.append(t)
-        doc.build(story)
-        buffer.seek(0)
+        t = Table(table_data); t.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 1, colors.black)])); story.append(t)
+        doc.build(story); buffer.seek(0)
         
-        flash(f"Buono N. {buono_n} assegnato agli articoli.", "success")
+        flash(f"Buono N. {buono_n} assegnato.", "success")
         return send_file(buffer, as_attachment=True, download_name=f'Buono_{buono_n}.pdf', mimetype='application/pdf')
 
     return render_template('buono_setup.html', articoli=articoli, ids=ids_str, primo_articolo=primo_articolo)
 
-
 @app.route('/ddt/setup', methods=['GET', 'POST'])
 def ddt_setup():
     if session.get('role') != 'admin': abort(403)
-    ids_str = request.args.get('ids')
+    ids_str = request.args.get('ids', '')
     if not ids_str: return redirect(url_for('index'))
     
     ids = [int(i) for i in ids_str.split(',')]
     articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
     
-    destinatari_path = CONFIG_FOLDER / 'destinatari_saved.json'
-    destinatari = {}
-    if destinatari_path.exists():
-        with open(destinatari_path, 'r', encoding='utf-8') as f:
-            destinatari = json.load(f)
+    dest_path = CONFIG_FOLDER / 'destinatari_saved.json'; destinatari = {}
+    if dest_path.exists():
+        with open(dest_path, 'r', encoding='utf-8') as f: destinatari = json.load(f)
 
     if request.method == 'POST':
         data_uscita = parse_date_safe(request.form.get('data_uscita')) or date.today()
@@ -396,8 +377,7 @@ def ddt_setup():
         prog_file = CONFIG_FOLDER / 'progressivi_ddt.json'
         try:
             with open(prog_file, 'r') as f: progressivi = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            progressivi = {}
+        except (FileNotFoundError, json.JSONDecodeError): progressivi = {}
         anno = str(data_uscita.year)
         num = progressivi.get(anno, 0) + 1
         progressivi[anno] = num
@@ -412,13 +392,10 @@ def ddt_setup():
         
         # Generazione PDF
         buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=A4)
-        story = []
-        styles = getSampleStyleSheet()
+        doc = SimpleDocTemplate(buffer, pagesize=A4); story = []; styles = getSampleStyleSheet()
         story.append(Paragraph(f"DDT N. {n_ddt}", styles['h1']))
-        story.append(Paragraph(f"Data: {data_uscita.strftime('%d/%m/%Y')}", styles['Normal']))
-        # Aggiungere altri dettagli del DDT
-        doc.build(story) # Semplificato, da completare con la logica PDF
+        # (Aggiungere qui logica PDF completa)
+        doc.build(story)
         buffer.seek(0)
         
         flash(f"Articoli scaricati con DDT N. {n_ddt}", "success")
@@ -430,20 +407,12 @@ def ddt_setup():
 def etichetta_manuale():
     if session.get('role') != 'admin': abort(403)
     if request.method == 'POST':
-        # Logica per generare il PDF dell'etichetta
-        data = request.form.to_dict()
-        buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=(100*mm, 62*mm), leftMargin=5*mm, rightMargin=5*mm, topMargin=5*mm, bottomMargin=5*mm)
-        story = []
-        styles = getSampleStyleSheet()
-        
-        # Aggiungere contenuto al PDF
+        data = request.form.to_dict(); buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=(100*mm, 62*mm), margins=(5*mm, 5*mm, 5*mm, 5*mm))
+        story = []; styles = getSampleStyleSheet()
         for key, value in data.items():
-            if value:
-                story.append(Paragraph(f"<b>{key.replace('_', ' ').title()}:</b> {value}", styles['Normal']))
-
-        doc.build(story)
-        buffer.seek(0)
+            if value: story.append(Paragraph(f"<b>{key.replace('_', ' ').title()}:</b> {value}", styles['Normal']))
+        doc.build(story); buffer.seek(0)
         return send_file(buffer, as_attachment=True, download_name='etichetta.pdf', mimetype='application/pdf')
     return render_template('etichetta_manuale.html')
 
@@ -464,7 +433,7 @@ def bulk_delete():
 @app.route('/articoli/edit_multiple', methods=['GET', 'POST'])
 def edit_multiple():
     if session.get('role') != 'admin': abort(403)
-    ids_str = request.args.get('ids')
+    ids_str = request.args.get('ids', '')
     if not ids_str:
         flash("Nessun articolo selezionato per la modifica.", "warning")
         return redirect(url_for('index'))
@@ -476,7 +445,6 @@ def edit_multiple():
         for art in articoli:
             for field, value in request.form.items():
                 if f"update_{field}" in request.form and value:
-                    # Applica la modifica
                     setattr(art, field, value)
         db.session.commit()
         flash(f"{len(articoli)} articoli aggiornati.", "success")
@@ -484,16 +452,43 @@ def edit_multiple():
 
     return render_template('edit_multiple.html', articoli=articoli, ids=ids_str)
 
+@app.route('/destinatari', methods=['GET', 'POST'])
+def gestione_destinatari():
+    if session.get('role') != 'admin': abort(403)
+    dest_path = CONFIG_FOLDER / 'destinatari_saved.json'
+    try:
+        with open(dest_path, 'r', encoding='utf-8') as f: destinatari = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError): destinatari = {}
+
+    if request.method == 'POST':
+        if 'delete_key' in request.form:
+            key_to_delete = request.form['delete_key']
+            if key_to_delete in destinatari:
+                del destinatari[key_to_delete]
+                flash(f'Destinatario "{key_to_delete}" eliminato.', 'success')
+        else:
+            nickname = request.form.get('nickname')
+            ragione_sociale = request.form.get('ragione_sociale')
+            indirizzo = request.form.get('indirizzo')
+            piva = request.form.get('piva')
+            if nickname and ragione_sociale and indirizzo:
+                destinatari[nickname.upper()] = {"ragione_sociale": ragione_sociale, "indirizzo": indirizzo, "piva": piva}
+                flash(f'Destinatario "{nickname.upper()}" aggiunto/aggiornato.', 'success')
+            else:
+                flash('Nickname, Ragione Sociale e Indirizzo sono obbligatori.', 'warning')
+        
+        with open(dest_path, 'w', encoding='utf-8') as f: json.dump(destinatari, f, indent=4, ensure_ascii=False)
+        return redirect(url_for('gestione_destinatari'))
+
+    return render_template('destinatari.html', destinatari=destinatari)
 
 # --- 7. SETUP E AVVIO APPLICAZIONE ---
 def initialize_app():
     """Esegue il backup, la configurazione del database e la copia dei file di configurazione."""
     db_path = DATA_DIR / "magazzino_web.db"
-    
     if db_path.exists():
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_filename = f"magazzino_backup_{timestamp}.db"
-        backup_path = BACKUP_FOLDER / backup_filename
+        backup_path = BACKUP_FOLDER / f"magazzino_backup_{timestamp}.db"
         try:
             shutil.copy(db_path, backup_path)
             logging.info(f"Backup del database creato con successo: {backup_path}")
@@ -501,8 +496,7 @@ def initialize_app():
             logging.error(f"Errore durante la creazione del backup: {e}")
 
     source_dir = Path(__file__).resolve().parent
-    config_files = ['mappe_excel.json', 'progressivi_ddt.json', 'destinatari_saved.json']
-    for filename in config_files:
+    for filename in ['mappe_excel.json', 'progressivi_ddt.json', 'destinatari_saved.json']:
         source_path = source_dir / filename
         dest_path = CONFIG_FOLDER / filename
         if source_path.exists() and not dest_path.exists():
@@ -510,7 +504,7 @@ def initialize_app():
                 shutil.copy(source_path, dest_path)
                 logging.info(f"Copiato file di configurazione '{filename}' in {CONFIG_FOLDER}")
             except Exception as e:
-                logging.error(f"Impossibile copiare il file di configurazione '{filename}': {e}")
+                logging.error(f"Impossibile copiare '{filename}': {e}")
 
     db.create_all()
     for username, password in USER_CREDENTIALS.items():
