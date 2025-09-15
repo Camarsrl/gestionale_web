@@ -53,7 +53,6 @@
                         <td>{{ art.n_colli or '' }}</td>
                         <td>{{ art.peso or '' }}</td>
                         <td>{{ art.posizione or '' }}</td>
-                        <!-- RIGA CORRETTA -->
                         <td>{{ [art.lunghezza, art.larghezza, art.altezza] | select('defined') | join('×') }}</td>
                         <td>{{ art.m2 or '' }} / {{ art.m3 or '' }}</td>
                         <td>{{ art.data_uscita.strftime('%d/%m/%Y') if art.data_uscita else '' }}</td>
@@ -124,8 +123,4 @@
     }
 </script>
 {% endblock %}
-
-
-
-
 
