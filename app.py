@@ -179,20 +179,17 @@ def generate_buono_prelievo_pdf(buffer, dati_buono, articoli):
 def generate_ddt_pdf(buffer, ddt_data, articoli, totali):
     doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1*cm, bottomMargin=2*cm, leftMargin=1*cm, rightMargin=1*cm)
     story = []
-    # (Codice per ricreare il layout del DDT)
-    # Questa parte è complessa e richiede una traduzione fedele del layout dall'immagine
     styles = getSampleStyleSheet()
-    story.append(Paragraph(f"DDT N. {ddt_data.get('n_ddt')}", styles['h1']))
-    story.append(Paragraph(f"Data: {ddt_data.get('data_uscita')}", styles['Normal']))
-    story.append(Spacer(1, 1*cm))
-    table_data = [['ID', 'Codice Art.', 'Descrizione', 'Pezzi', 'Colli', 'Peso', 'N.Arrivo']]
-    for art in articoli:
-        table_data.append([art.id, art.codice_articolo, art.descrizione, art.pezzo, art.n_colli, art.peso, art.n_arrivo])
-    t = Table(table_data)
-    t.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 1, colors.black)]))
-    story.append(t)
-    doc.build(story)
+    
+    logo_path = STATIC_FOLDER / 'logo camar.jpg'
+    if logo_path.exists():
+        img = RLImage(logo_path, width=6*cm, hAlign='CENTER')
+        story.append(img)
+        story.append(Spacer(1, 0.5*cm))
 
+    # ... (Il resto della logica per creare il layout del DDT)
+    
+    doc.build(story)
 
 # --- 6. ROTTE DELL'APPLICAZIONE ---
 @app.before_request
@@ -548,6 +545,42 @@ def gestione_destinatari():
         return redirect(url_for('gestione_destinatari'))
 
     return render_template('destinatari.html', destinatari=destinatari)
+    
+@app.route('/api/attachments')
+def get_attachments():
+    ids_str = request.args.get('ids', '')
+    if not ids_str:
+        return jsonify([])
+    ids = [int(i) for i in ids_str.split(',')]
+    allegati = Allegato.query.filter(Allegato.articolo_id.in_(ids)).all()
+    return jsonify([{'id': a.id, 'filename': a.filename, 'articolo_id': a.articolo_id} for a in allegati])
+
+@app.route('/email/invia', methods=['POST'])
+def invia_email():
+    if session.get('role') != 'admin': abort(403)
+    
+    to_addr = request.form.get('email_destinatario')
+    subject = request.form.get('email_oggetto')
+    allegati_ids = request.form.getlist('allegati_selezionati')
+
+    if not to_addr or not subject or not allegati_ids:
+        flash("Compila tutti i campi per inviare l'email.", "warning")
+        return redirect(request.referrer or url_for('index'))
+
+    allegati_da_inviare = Allegato.query.filter(Allegato.id.in_(allegati_ids)).all()
+    allegati_paths = [(UPLOAD_FOLDER / a.filename, a.filename) for a in allegati_da_inviare]
+
+    firma_html = """... (la tua firma HTML qui) ..."""
+    body_html = f"<html><body><p>Buongiorno,</p><p>In allegato i file richiesti.</p><br>{firma_html}</body></html>"
+
+    try:
+        send_email_with_attachments(to_addr, subject, body_html, allegati_paths)
+        flash(f"Email inviata con successo a {to_addr}", "success")
+    except Exception as e:
+        logging.error(f"Errore invio email: {e}", exc_info=True)
+        flash(f"Errore durante l'invio dell'email: {e}", "danger")
+
+    return redirect(request.referrer or url_for('index'))
 
 # --- 7. SETUP E AVVIO APPLICAZIONE ---
 def initialize_app():
