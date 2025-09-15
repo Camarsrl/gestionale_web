@@ -1,0 +1,31 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="card p-4">
+    <h3>Modifica Multipla di {{ articoli|length }} Articoli</h3>
+    <p class="text-muted">Seleziona i campi che vuoi aggiornare. Solo i campi selezionati e compilati verranno applicati a tutti gli articoli.</p>
+    <hr>
+    <form method="POST">
+        <div class="row g-3">
+            {% set fields = [
+                ('cliente', 'Cliente'), ('fornitore', 'Fornitore'), ('commessa', 'Commessa'), ('ordine', 'Ordine'),
+                ('posizione', 'Posizione'), ('stato', 'Stato'), ('data_uscita', 'Data Uscita (GG/MM/AAAA)'), ('n_ddt_uscita', 'N. DDT Uscita')
+            ] %}
+
+            {% for name, label in fields %}
+            <div class="col-md-6">
+                <div class="input-group">
+                    <div class="input-group-text">
+                        <input class="form-check-input mt-0" type="checkbox" name="update_{{ name }}">
+                    </div>
+                    <input type="text" class="form-control" name="{{ name }}" placeholder="{{ label }}">
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="mt-4">
+            <button type="submit" class="btn btn-primary" onclick="return confirm('Sei sicuro di voler applicare queste modifiche a tutti gli articoli selezionati?');">Applica Modifiche</button>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">Annulla</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
