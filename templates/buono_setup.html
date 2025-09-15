@@ -1,0 +1,33 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="card p-4">
+    <h3>Crea Buono di Prelievo</h3>
+    <p class="text-muted">Inserisci un numero di buono per gli {{ articoli|length }} articoli selezionati. Verrà generato un PDF e il campo 'Buono N.' verrà aggiornato.</p>
+    <hr>
+    <form method="POST">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label for="buono_n" class="form-label">Numero Buono (*)</label>
+                <input type="text" name="buono_n" id="buono_n" class="form-control" required>
+            </div>
+            <div class="col-md-4">
+                <label for="cliente" class="form-label">Cliente</label>
+                <input type="text" name="cliente" id="cliente" class="form-control" value="{{ primo_articolo.cliente if primo_articolo else '' }}">
+            </div>
+            <div class="col-md-4">
+                <label for="commessa" class="form-label">Commessa</label>
+                <input type="text" name="commessa" id="commessa" class="form-control" value="{{ primo_articolo.commessa if primo_articolo else '' }}">
+            </div>
+             <div class="col-md-4">
+                <label for="protocollo" class="form-label">Protocollo</label>
+                <input type="text" name="protocollo" id="protocollo" class="form-control" value="{{ primo_articolo.protocollo if primo_articolo else '' }}">
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <button type="submit" class="btn btn-primary">Genera PDF e Salva</button>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">Annulla</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
