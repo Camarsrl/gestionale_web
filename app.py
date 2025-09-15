@@ -8,6 +8,8 @@ import logging
 from datetime import datetime, date
 from pathlib import Path
 import io
+import smtplib
+from email.message import EmailMessage
 
 # --- LIBRERIE DI TERZE PARTI ---
 from flask import (Flask, request, redirect, url_for, render_template,
@@ -140,25 +142,30 @@ def generate_buono_prelievo_pdf(buffer, dati_buono, articoli):
     doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=2*cm, bottomMargin=2*cm)
     story = []
     styles = getSampleStyleSheet()
+
     logo_path = STATIC_FOLDER / 'logo camar.jpg'
     if logo_path.exists():
         img = RLImage(logo_path, width=7*cm, height=3.5*cm, hAlign='CENTER')
         story.append(img)
         story.append(Spacer(1, 1*cm))
+
     style_title = ParagraphStyle(name='Title', parent=styles['h1'], alignment=TA_CENTER)
     style_subtitle = ParagraphStyle(name='SubTitle', parent=styles['h2'], alignment=TA_CENTER)
     story.append(Paragraph(f"BUONO PRELIEVO {dati_buono.get('numero_buono', '')}", style_title))
     story.append(Paragraph(f"{dati_buono.get('cliente', '')} - Commessa {dati_buono.get('commessa', '')}", style_subtitle))
     story.append(Spacer(1, 1*cm))
+
     style_body = styles['Normal']
     story.append(Paragraph(f"Data Emissione: {dati_buono.get('data_emissione', '')}", style_body))
     story.append(Paragraph(f"Commessa: {dati_buono.get('commessa', '')}", style_body))
     story.append(Paragraph(f"Fornitore: {dati_buono.get('fornitore', '')}", style_body))
     story.append(Paragraph(f"Protocollo: {dati_buono.get('protocollo', '')}", style_body))
     story.append(Spacer(1, 1*cm))
+
     table_data = [['Ordine', 'Codice Articolo', 'Descrizione', 'Quantità', 'N.Arrivo']]
     for art in articoli:
         table_data.append([art.ordine or 'None', art.codice_articolo or '', art.descrizione or '', art.pezzo or '', art.n_arrivo or ''])
+
     t = Table(table_data, colWidths=[2.5*cm, 4*cm, 7*cm, 2.5*cm, 2.5*cm])
     t.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 1, colors.black), ('BACKGROUND', (0,0), (-1,0), colors.lightgrey), ('VALIGN', (0,0), (-1,-1), 'TOP')]))
     story.append(t)
@@ -166,12 +173,24 @@ def generate_buono_prelievo_pdf(buffer, dati_buono, articoli):
     story.append(Paragraph("Firma Magazzino: ________________________", style_body))
     story.append(Spacer(1, 1*cm))
     story.append(Paragraph("Firma Cliente: ________________________", style_body))
+
     doc.build(story)
 
 def generate_ddt_pdf(buffer, ddt_data, articoli, totali):
     doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1*cm, bottomMargin=2*cm, leftMargin=1*cm, rightMargin=1*cm)
     story = []
-    # ... (logica generazione PDF complessa)
+    # (Codice per ricreare il layout del DDT)
+    # Questa parte è complessa e richiede una traduzione fedele del layout dall'immagine
+    styles = getSampleStyleSheet()
+    story.append(Paragraph(f"DDT N. {ddt_data.get('n_ddt')}", styles['h1']))
+    story.append(Paragraph(f"Data: {ddt_data.get('data_uscita')}", styles['Normal']))
+    story.append(Spacer(1, 1*cm))
+    table_data = [['ID', 'Codice Art.', 'Descrizione', 'Pezzi', 'Colli', 'Peso', 'N.Arrivo']]
+    for art in articoli:
+        table_data.append([art.id, art.codice_articolo, art.descrizione, art.pezzo, art.n_colli, art.peso, art.n_arrivo])
+    t = Table(table_data)
+    t.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 1, colors.black)]))
+    story.append(t)
     doc.build(story)
 
 
@@ -440,11 +459,10 @@ def ddt_setup():
             art.stato = 'Uscito'
         db.session.commit()
         
-        # Generazione PDF
         buffer = io.BytesIO()
         ddt_data = request.form.to_dict()
         ddt_data['n_ddt'] = n_ddt
-        generate_ddt_pdf(buffer, ddt_data, articoli, {}) # Pass totali vuoti, da implementare se necessario
+        generate_ddt_pdf(buffer, ddt_data, articoli, {})
         buffer.seek(0)
         
         flash(f"Articoli scaricati con DDT N. {n_ddt}", "success")
