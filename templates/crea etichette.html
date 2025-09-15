@@ -1,0 +1,24 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="card p-4 mx-auto" style="max-width: 600px;">
+    <h3>Crea Etichetta Manuale</h3>
+    <p class="text-muted">Compila i campi per generare un'etichetta in formato PDF (100x62 mm).</p>
+    <hr>
+    <form method="POST">
+        <div class="row g-3">
+            <div class="col-md-6"><label class="form-label">Cliente</label><input name="cliente" class="form-control"></div>
+            <div class="col-md-6"><label class="form-label">Fornitore</label><input name="fornitore" class="form-control"></div>
+            <div class="col-md-6"><label class="form-label">Ordine</label><input name="ordine" class="form-control"></div>
+            <div class="col-md-6"><label class="form-label">Commessa</label><input name="commessa" class="form-control"></div>
+            <div class="col-md-6"><label class="form-label">N. DDT Ingresso</label><input name="n_ddt_ingresso" class="form-control"></div>
+            <div class="col-md-6"><label class="form-label">Data Ingresso</label><input name="data_ingresso" class="form-control" placeholder="GG/MM/AAAA"></div>
+            <div class="col-md-6"><label class="form-label">N. Arrivo</label><input name="n_arrivo" class="form-control"></div>
+            <div class="col-md-6"><label class="form-label">N. Colli</label><input type="number" name="n_colli" class="form-control"></div>
+        </div>
+        <div class="mt-4">
+            <button type="submit" class="btn btn-primary">Genera PDF Etichetta</button>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">Annulla</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
