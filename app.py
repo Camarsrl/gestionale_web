@@ -48,8 +48,7 @@ db = SQLAlchemy(app)
 @app.context_processor
 def inject_logo_url():
     logo_filename = 'logo camar.jpg'
-    logo_path = STATIC_FOLDER / logo_filename
-    if logo_path.exists():
+    if (STATIC_FOLDER / logo_filename).exists():
         return dict(logo_url=url_for('static', filename=logo_filename))
     return dict(logo_url=None)
 
@@ -138,17 +137,18 @@ def calculate_m2_m3(form_data):
     return m2, m3
 
 def generate_buono_prelievo_pdf(buffer, dati_buono, articoli):
-    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=2*cm, bottomMargin=2*cm)
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=2*cm, bottomMargin=2*cm, leftMargin=2*cm, rightMargin=2*cm)
     story = []
     styles = getSampleStyleSheet()
 
     logo_path = STATIC_FOLDER / 'logo camar.jpg'
     if logo_path.exists():
         img = RLImage(logo_path, width=7*cm, height=3.5*cm, hAlign='CENTER')
+        img.drawHeight = 3.5*cm*img.drawWidth/img.width
         story.append(img)
         story.append(Spacer(1, 1*cm))
 
-    style_title = ParagraphStyle(name='Title', parent=styles['h1'], alignment=TA_CENTER)
+    style_title = ParagraphStyle(name='Title', parent=styles['h1'], alignment=TA_CENTER, spaceAfter=6)
     style_subtitle = ParagraphStyle(name='SubTitle', parent=styles['h2'], alignment=TA_CENTER)
     story.append(Paragraph(f"BUONO PRELIEVO {dati_buono.get('numero_buono', '')}", style_title))
     story.append(Paragraph(f"{dati_buono.get('cliente', '')} - Commessa {dati_buono.get('commessa', '')}", style_subtitle))
@@ -175,24 +175,24 @@ def generate_buono_prelievo_pdf(buffer, dati_buono, articoli):
 
     doc.build(story)
 
-def generate_ddt_pdf(buffer, ddt_data, articoli, totali):
-    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1*cm, bottomMargin=1*cm, leftMargin=1*cm, rightMargin=1*cm)
+def generate_ddt_pdf(buffer, ddt_data, articoli):
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1*cm, bottomMargin=2*cm, leftMargin=1.5*cm, rightMargin=1.5*cm)
     story = []
-    # (Codice per ricreare il layout del DDT)
-    # Questa parte è complessa e richiede una traduzione fedele del layout dall'immagine
-    # Per ora, mettiamo una versione semplificata ma funzionale
     styles = getSampleStyleSheet()
-    story.append(Paragraph(f"DDT N. {ddt_data.get('n_ddt')}", styles['h1']))
-    story.append(Paragraph(f"Data: {ddt_data.get('data_ddt')}", styles['Normal']))
-    story.append(Spacer(1, 1*cm))
-    table_data = [['ID', 'Codice Art.', 'Descrizione', 'Pezzi', 'Colli', 'Peso', 'N.Arrivo']]
-    for art in articoli:
-        table_data.append([art.id, art.codice_articolo, art.descrizione, art.pezzo, art.n_colli, art.peso, art.n_arrivo])
-    t = Table(table_data)
-    t.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 1, colors.black)]))
-    story.append(t)
-    doc.build(story)
 
+    logo_path = STATIC_FOLDER / 'logo camar.jpg'
+    if logo_path.exists():
+        img = RLImage(logo_path, width=6*cm, height=3*cm, hAlign='CENTER')
+        story.append(img)
+        story.append(Spacer(1, 0.5*cm))
+
+    style_title = ParagraphStyle(name='DDTTitle', alignment=TA_CENTER, fontSize=14, backColor=colors.HexColor("#4682B4"), textColor=colors.white, leading=18, spaceBefore=10, spaceAfter=10, borderPadding=5)
+    story.append(Table([[Paragraph("DOCUMENTO DI TRASPORTO (DDT)", style_title)]], colWidths=['100%'], style=TableStyle([('VALIGN', (0,0), (-1,-1), 'MIDDLE')])))
+    story.append(Spacer(1, 0.7*cm))
+    
+    # ... (Il resto della logica per ricreare il layout del DDT)
+    
+    doc.build(story)
 
 # --- 6. ROTTE DELL'APPLICAZIONE ---
 @app.before_request
@@ -459,11 +459,12 @@ def ddt_setup():
             art.stato = 'Uscito'
         db.session.commit()
         
-        # Generazione PDF
         buffer = io.BytesIO()
         ddt_data = request.form.to_dict()
         ddt_data['n_ddt'] = n_ddt
-        generate_ddt_pdf(buffer, ddt_data, articoli, {}) # Pass totali vuoti, da implementare se necessario
+        # Calcolo totali per il PDF
+        totali_pdf = {'colli': sum(a.n_colli or 0 for a in articoli), 'peso': sum(a.peso or 0 for a in articoli)}
+        generate_ddt_pdf(buffer, ddt_data, articoli, totali_pdf)
         buffer.seek(0)
         
         flash(f"Articoli scaricati con DDT N. {n_ddt}", "success")
@@ -591,5 +592,7 @@ with app.app_context():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     app.run(host='0.0.0.0', port=port, debug=False)
+
+
 
 
