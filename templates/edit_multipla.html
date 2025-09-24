@@ -2,7 +2,7 @@
 {% block content %}
 <div class="card p-4">
     <h3>Modifica Multipla di {{ articoli|length }} Articoli</h3>
-    <p class="text-muted">Seleziona i campi che vuoi aggiornare. Solo i campi selezionati e compilati verranno applicati a tutti gli articoli.</p>
+    <p class="text-muted">Seleziona i campi che vuoi aggiornare spuntando la casella corrispondente. Solo i campi selezionati e compilati verranno applicati a tutti gli articoli scelti.</p>
     <hr>
     <form method="POST">
         <div class="row g-3">
@@ -15,17 +15,19 @@
             <div class="col-md-6">
                 <div class="input-group">
                     <div class="input-group-text">
-                        <input class="form-check-input mt-0" type="checkbox" name="update_{{ name }}">
+                        <input class="form-check-input mt-0" type="checkbox" name="update_{{ name }}" onchange="document.getElementsByName('{{ name }}')[0].disabled = !this.checked;">
                     </div>
-                    <input type="text" class="form-control" name="{{ name }}" placeholder="{{ label }}">
+                    <input type="text" class="form-control" name="{{ name }}" placeholder="{{ label }}" disabled>
                 </div>
             </div>
             {% endfor %}
         </div>
         <div class="mt-4">
-            <button type="submit" class="btn btn-primary" onclick="return confirm('Sei sicuro di voler applicare queste modifiche a tutti gli articoli selezionati?');">Applica Modifiche</button>
+            <button type="submit" class="btn btn-primary" onclick="return confirm('Sei sicuro di voler applicare queste modifiche a tutti gli articoli selezionati? L\'operazione non è reversibile.');">Applica Modifiche</button>
             <a href="{{ url_for('index') }}" class="btn btn-secondary">Annulla</a>
         </div>
     </form>
 </div>
 {% endblock %}
+
+
