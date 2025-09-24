@@ -2,20 +2,22 @@
 {% block content %}
 <div class="card p-4">
     <h3>Crea Documento di Trasporto (DDT)</h3>
-    <p class="text-muted">Conferma i dati per gli {{ articoli|length }} articoli selezionati. Verrà generato un PDF e gli articoli verranno scaricati dal magazzino.</p>
+    <p class="text-muted">Conferma i dati per gli <strong>{{ articoli|length }}</strong> articoli selezionati. Verrà generato un PDF e gli articoli verranno scaricati dal magazzino.</p>
     <hr>
     <form method="POST">
         <div class="row g-3">
             <div class="col-md-6">
-                <label for="destinatario" class="form-label">Destinatario</label>
+                <label for="destinatario" class="form-label">Destinatario (*)</label>
                 <select name="destinatario_key" id="destinatario" class="form-select">
                     {% for key, dest in destinatari.items() %}
                         <option value="{{ key }}">{{ dest.ragione_sociale }} ({{ key }})</option>
+                    {% else %}
+                        <option value="" disabled>Nessun destinatario salvato. Aggiungilo da "Gestisci Destinatari".</option>
                     {% endfor %}
                 </select>
             </div>
             <div class="col-md-6">
-                <label for="data_uscita" class="form-label">Data Uscita</label>
+                <label for="data_uscita" class="form-label">Data Uscita (*)</label>
                 <input type="date" name="data_uscita" id="data_uscita" class="form-control" value="{{ today }}">
             </div>
             <div class="col-md-6">
@@ -28,6 +30,28 @@
             </div>
         </div>
 
+        <h5 class="mt-4">Articoli Inclusi</h5>
+        <div class="table-responsive" style="max-height: 30vh;">
+            <table class="table table-sm table-bordered">
+                <thead class="table-light">
+                    <tr>
+                        <th>ID</th>
+                        <th>Codice Articolo</th>
+                        <th>Descrizione</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for art in articoli %}
+                    <tr>
+                        <td>{{ art.id }}</td>
+                        <td>{{ art.codice_articolo }}</td>
+                        <td>{{ art.descrizione | truncate(50) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
         <div class="mt-4">
             <button type="submit" class="btn btn-primary">Genera DDT e Scarica Articoli</button>
             <a href="{{ url_for('index') }}" class="btn btn-secondary">Annulla</a>
@@ -35,3 +59,4 @@
     </form>
 </div>
 {% endblock %}
+
