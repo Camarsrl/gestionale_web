@@ -139,7 +139,7 @@ def calculate_m2_m3(form_data):
     return m2, m3
 
 def generate_buono_prelievo_pdf(buffer, dati_buono, articoli):
-    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=2*cm, bottomMargin=2*cm)
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1.5*cm, bottomMargin=2*cm, leftMargin=2*cm, rightMargin=2*cm)
     story = []
     styles = getSampleStyleSheet()
 
@@ -149,47 +149,81 @@ def generate_buono_prelievo_pdf(buffer, dati_buono, articoli):
         story.append(img)
         story.append(Spacer(1, 1*cm))
 
-    style_title = ParagraphStyle(name='Title', parent=styles['h1'], alignment=TA_CENTER)
+    style_title = ParagraphStyle(name='Title', parent=styles['h1'], alignment=TA_CENTER, spaceAfter=6)
     style_subtitle = ParagraphStyle(name='SubTitle', parent=styles['h2'], alignment=TA_CENTER)
     story.append(Paragraph(f"BUONO PRELIEVO {dati_buono.get('numero_buono', '')}", style_title))
     story.append(Paragraph(f"{dati_buono.get('cliente', '')} - Commessa {dati_buono.get('commessa', '')}", style_subtitle))
     story.append(Spacer(1, 1*cm))
 
-    style_body = styles['Normal']
-    story.append(Paragraph(f"Data Emissione: {dati_buono.get('data_emissione', '')}", style_body))
-    story.append(Paragraph(f"Commessa: {dati_buono.get('commessa', '')}", style_body))
-    story.append(Paragraph(f"Fornitore: {dati_buono.get('fornitore', '')}", style_body))
-    story.append(Paragraph(f"Protocollo: {dati_buono.get('protocollo', '')}", style_body))
+    style_body = ParagraphStyle(name='Body', parent=styles['Normal'], leading=14)
+    story.append(Paragraph(f"<b>Data Emissione:</b> {dati_buono.get('data_emissione', '')}", style_body))
+    story.append(Paragraph(f"<b>Commessa:</b> {dati_buono.get('commessa', '')}", style_body))
+    story.append(Paragraph(f"<b>Fornitore:</b> {dati_buono.get('fornitore', '')}", style_body))
+    story.append(Paragraph(f"<b>Protocollo:</b> {dati_buono.get('protocollo', '')}", style_body))
     story.append(Spacer(1, 1*cm))
 
     table_data = [['Ordine', 'Codice Articolo', 'Descrizione', 'Quantità', 'N.Arrivo']]
     for art in articoli:
-        table_data.append([art.ordine or 'None', art.codice_articolo or '', art.descrizione or '', art.pezzo or '', art.n_arrivo or ''])
+        quantita = art.pezzo or art.n_colli or '1'
+        n_arrivo = art.n_arrivo or ''
+        table_data.append([art.ordine or 'None', art.codice_articolo or '', art.descrizione or '', quantita, n_arrivo])
 
     t = Table(table_data, colWidths=[2.5*cm, 4*cm, 7*cm, 2.5*cm, 2.5*cm])
-    t.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 1, colors.black), ('BACKGROUND', (0,0), (-1,0), colors.lightgrey), ('VALIGN', (0,0), (-1,-1), 'TOP')]))
+    t.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 1, colors.black), ('BACKGROUND', (0,0), (-1,0), colors.lightgrey), ('VALIGN', (0,0), (-1,-1), 'TOP'), ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold')]))
     story.append(t)
-    story.append(Spacer(1, 2*cm))
+    story.append(Spacer(1, 3*cm))
     story.append(Paragraph("Firma Magazzino: ________________________", style_body))
     story.append(Spacer(1, 1*cm))
     story.append(Paragraph("Firma Cliente: ________________________", style_body))
 
     doc.build(story)
 
-def generate_ddt_pdf(buffer, ddt_data, articoli, totali):
+def generate_ddt_pdf(buffer, ddt_data, articoli, totali, destinatari):
     doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1*cm, bottomMargin=2*cm, leftMargin=1*cm, rightMargin=1*cm)
     story = []
     styles = getSampleStyleSheet()
-    
+
     logo_path = STATIC_FOLDER / 'logo camar.jpg'
     if logo_path.exists():
-        img = RLImage(logo_path, width=6*cm, hAlign='CENTER')
+        img = RLImage(logo_path, width=8*cm, hAlign='CENTER')
         story.append(img)
         story.append(Spacer(1, 0.5*cm))
     
     # ... (Il resto della logica per creare il layout del DDT)
     
     doc.build(story)
+
+def send_email_with_attachments(to_address, subject, body_html, attachments):
+    smtp_host = os.environ.get("SMTP_HOST")
+    smtp_port = int(os.environ.get("SMTP_PORT", 587))
+    smtp_user = os.environ.get("SMTP_USER")
+    smtp_pass = os.environ.get("SMTP_PASS")
+    from_addr = os.environ.get("FROM_EMAIL", smtp_user)
+
+    if not all([smtp_host, smtp_port, smtp_user, smtp_pass, from_addr]):
+        raise ValueError("Configurazione SMTP incompleta. Imposta le variabili d'ambiente.")
+
+    msg = EmailMessage()
+    msg["From"] = from_addr
+    msg["To"] = to_address
+    msg["Subject"] = subject
+    msg.set_content("Per visualizzare questo messaggio, è necessario un client di posta elettronica compatibile con HTML.")
+    msg.add_alternative(body_html, subtype='html')
+
+    for att_path, att_filename in attachments:
+        with open(att_path, 'rb') as f:
+            file_data = f.read()
+            ctype = 'application/octet-stream'
+            if att_filename.endswith('.pdf'): ctype = 'application/pdf'
+            elif att_filename.lower().endswith(('.jpg', '.jpeg')): ctype = 'image/jpeg'
+            elif att_filename.lower().endswith('.png'): ctype = 'image/png'
+            maintype, subtype = ctype.split('/', 1)
+            msg.add_attachment(file_data, maintype=maintype, subtype=subtype, filename=att_filename)
+
+    with smtplib.SMTP(smtp_host, port=smtp_port) as server:
+        server.starttls()
+        server.login(smtp_user, smtp_pass)
+        server.send_message(msg)
 
 # --- 6. ROTTE DELL'APPLICAZIONE ---
 @app.before_request
@@ -623,7 +657,3 @@ with app.app_context():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     app.run(host='0.0.0.0', port=port, debug=False)
-
-
-
-
