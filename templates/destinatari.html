@@ -1,18 +1,22 @@
 {% extends "layout.html" %}
 {% block content %}
 <div class="row">
+    <!-- Lista destinatari -->
     <div class="col-md-7">
         <div class="card">
             <div class="card-body">
-                <h5 class="card-title">Destinatari Salvati</h5>
+                <h5 class="card-title">Destinatari salvati</h5>
                 <ul class="list-group">
                     {% for key, value in destinatari.items() %}
                     <li class="list-group-item d-flex justify-content-between align-items-center">
                         <div>
                             <strong>{{ key }}</strong><br>
-                            <small class="text-muted">{{ value.ragione_sociale }} - {{ value.indirizzo }} - P.IVA: {{ value.piva }}</small>
+                            <small class="text-muted">
+                                {{ value.ragione_sociale }} - {{ value.indirizzo }} - P.IVA: {{ value.piva }}
+                            </small>
                         </div>
                         <form method="post" onsubmit="return confirm('Eliminare questo destinatario?');">
+                            {% if csrf_token is defined %}{{ csrf_token() }}{% endif %}
                             <input type="hidden" name="delete_key" value="{{ key }}">
                             <button type="submit" class="btn btn-sm btn-outline-danger">Elimina</button>
                         </form>
@@ -24,31 +28,40 @@
             </div>
         </div>
     </div>
+
+    <!-- Form nuovo destinatario -->
     <div class="col-md-5">
         <div class="card">
             <div class="card-body">
-                <h5 class="card-title">Aggiungi / Modifica Destinatario</h5>
-                 <form method="post">
+                <h5 class="card-title">Aggiungi / Modifica destinatario</h5>
+                <form method="post">
+                    {% if csrf_token is defined %}{{ csrf_token() }}{% endif %}
+
                     <div class="mb-3">
-                        <label class="form-label">Nickname (Chiave Univoca)</label>
-                        <input name="nickname" class="form-control" required placeholder="Es. SEDE DE WAVE">
+                        <label for="nickname" class="form-label">Nickname (Chiave univoca)</label>
+                        <input id="nickname" name="nickname" class="form-control" required placeholder="Es. SEDE DE WAVE">
                     </div>
+
                     <div class="mb-3">
-                        <label class="form-label">Ragione Sociale</label>
-                        <input name="ragione_sociale" class="form-control" required>
+                        <label for="ragione_sociale" class="form-label">Ragione sociale</label>
+                        <input id="ragione_sociale" name="ragione_sociale" class="form-control" required>
                     </div>
+
                     <div class="mb-3">
-                        <label class="form-label">Indirizzo Completo</label>
-                        <textarea name="indirizzo" class="form-control" rows="3" required></textarea>
+                        <label for="indirizzo" class="form-label">Indirizzo completo</label>
+                        <textarea id="indirizzo" name="indirizzo" class="form-control" rows="3" required></textarea>
                     </div>
-                     <div class="mb-3">
-                        <label class="form-label">P.IVA / C.F.</label>
-                        <input name="piva" class="form-control">
+
+                    <div class="mb-3">
+                        <label for="piva" class="form-label">P.IVA / C.F.</label>
+                        <input id="piva" name="piva" class="form-control">
                     </div>
-                    <button type="submit" class="btn btn-primary">Salva Destinatario</button>
+
+                    <button type="submit" class="btn btn-primary">Salva destinatario</button>
                 </form>
             </div>
         </div>
     </div>
 </div>
 {% endblock %}
+
