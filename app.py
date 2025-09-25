@@ -164,7 +164,7 @@ def generate_buono_prelievo_pdf(buffer, dati_buono, articoli):
 
     table_data = [['Ordine', 'Codice Articolo', 'Descrizione', 'Quantità', 'N.Arrivo']]
     for art in articoli:
-        quantita = art.pezzo if art.pezzo else (art.n_colli or '1')
+        quantita = art.pezzo or art.n_colli or '1'
         n_arrivo = art.n_arrivo or ''
         table_data.append([art.ordine or 'None', art.codice_articolo or '', art.descrizione or '', quantita, n_arrivo])
 
@@ -178,11 +178,19 @@ def generate_buono_prelievo_pdf(buffer, dati_buono, articoli):
 
     doc.build(story)
 
-def generate_ddt_pdf(buffer, ddt_data, articoli, totali, destinatari_info):
-    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1*cm, bottomMargin=2*cm, leftMargin=1*cm, rightMargin=1*cm)
+def generate_ddt_pdf(buffer, ddt_data, articoli, totali, destinatario_info):
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1*cm, bottomMargin=2.5*cm, leftMargin=1.5*cm, rightMargin=1.5*cm)
     story = []
-    # (Codice per ricreare il layout del DDT)
-    # ...
+    styles = getSampleStyleSheet()
+
+    logo_path = STATIC_FOLDER / 'logo camar.jpg'
+    if logo_path.exists():
+        img = RLImage(logo_path, width=8*cm, hAlign='CENTER')
+        story.append(img)
+        story.append(Spacer(1, 0.5*cm))
+
+    # ... (Il resto della logica per creare il layout del DDT)
+    
     doc.build(story)
 
 def send_email_with_attachments(to_address, subject, body_html, attachments):
@@ -650,4 +658,3 @@ with app.app_context():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     app.run(host='0.0.0.0', port=port, debug=False)
-
