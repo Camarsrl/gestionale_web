@@ -1,20 +1,52 @@
 {% extends "layout.html" %}
 {% block content %}
 <div class="card p-4 mx-auto" style="max-width: 600px;">
+    <!-- Logo in alto -->
+    <div class="text-center mb-3">
+        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" style="max-height: 80px;">
+    </div>
+
     <h3>Crea Etichetta Manuale</h3>
     <p class="text-muted">Compila i campi per generare un'etichetta in formato PDF (62x100 mm).</p>
     <hr>
-    <form method="POST" target="_blank">
+
+    <form method="post" target="_blank">
+        {% if csrf_token is defined %}{{ csrf_token() }}{% endif %}
         <div class="row g-3">
-            <div class="col-md-6"><label class="form-label">Cliente</label><input name="cliente" class="form-control"></div>
-            <div class="col-md-6"><label class="form-label">Fornitore</label><input name="fornitore" class="form-control"></div>
-            <div class="col-md-6"><label class="form-label">Ordine</label><input name="ordine" class="form-control"></div>
-            <div class="col-md-6"><label class="form-label">Commessa</label><input name="commessa" class="form-control"></div>
-            <div class="col-md-6"><label class="form-label">N. DDT Ingresso</label><input name="n_ddt_ingresso" class="form-control"></div>
-            <div class="col-md-6"><label class="form-label">Data Ingresso</label><input name="data_ingresso" class="form-control" placeholder="GG/MM/AAAA"></div>
-            <div class="col-md-6"><label class="form-label">N. Arrivo</label><input name="n_arrivo" class="form-control"></div>
-            <div class="col-md-6"><label class="form-label">N. Colli</label><input type="number" name="n_colli" class="form-control"></div>
+            <div class="col-md-6">
+                <label for="cliente" class="form-label">Cliente</label>
+                <input id="cliente" name="cliente" class="form-control">
+            </div>
+            <div class="col-md-6">
+                <label for="fornitore" class="form-label">Fornitore</label>
+                <input id="fornitore" name="fornitore" class="form-control">
+            </div>
+            <div class="col-md-6">
+                <label for="ordine" class="form-label">Ordine</label>
+                <input id="ordine" name="ordine" class="form-control">
+            </div>
+            <div class="col-md-6">
+                <label for="commessa" class="form-label">Commessa</label>
+                <input id="commessa" name="commessa" class="form-control">
+            </div>
+            <div class="col-md-6">
+                <label for="n_ddt_ingresso" class="form-label">N. DDT Ingresso</label>
+                <input id="n_ddt_ingresso" name="n_ddt_ingresso" class="form-control">
+            </div>
+            <div class="col-md-6">
+                <label for="data_ingresso" class="form-label">Data Ingresso</label>
+                <input id="data_ingresso" name="data_ingresso" class="form-control" placeholder="GG/MM/AAAA">
+            </div>
+            <div class="col-md-6">
+                <label for="n_arrivo" class="form-label">N. Arrivo</label>
+                <input id="n_arrivo" name="n_arrivo" class="form-control">
+            </div>
+            <div class="col-md-6">
+                <label for="n_colli" class="form-label">N. Colli</label>
+                <input id="n_colli" type="number" name="n_colli" class="form-control">
+            </div>
         </div>
+
         <div class="mt-4">
             <button type="submit" class="btn btn-primary">Genera PDF Etichetta</button>
             <a href="{{ url_for('index') }}" class="btn btn-secondary">Annulla</a>
@@ -22,9 +54,3 @@
     </form>
 </div>
 {% endblock %}
-
-
-
-
-
-
