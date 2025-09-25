@@ -20,7 +20,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 import pandas as pd
 from reportlab.lib.pagesizes import A4, landscape
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage, PageBreak
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage, PageBreak, Frame, PageTemplate
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.lib import colors
@@ -164,7 +164,7 @@ def generate_buono_prelievo_pdf(buffer, dati_buono, articoli):
 
     table_data = [['Ordine', 'Codice Articolo', 'Descrizione', 'Quantità', 'N.Arrivo']]
     for art in articoli:
-        quantita = art.pezzo or art.n_colli or '1'
+        quantita = art.pezzo if art.pezzo else (art.n_colli or '1')
         n_arrivo = art.n_arrivo or ''
         table_data.append([art.ordine or 'None', art.codice_articolo or '', art.descrizione or '', quantita, n_arrivo])
 
@@ -178,19 +178,11 @@ def generate_buono_prelievo_pdf(buffer, dati_buono, articoli):
 
     doc.build(story)
 
-def generate_ddt_pdf(buffer, ddt_data, articoli, totali, destinatari):
+def generate_ddt_pdf(buffer, ddt_data, articoli, totali, destinatari_info):
     doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1*cm, bottomMargin=2*cm, leftMargin=1*cm, rightMargin=1*cm)
     story = []
-    styles = getSampleStyleSheet()
-
-    logo_path = STATIC_FOLDER / 'logo camar.jpg'
-    if logo_path.exists():
-        img = RLImage(logo_path, width=8*cm, hAlign='CENTER')
-        story.append(img)
-        story.append(Spacer(1, 0.5*cm))
-    
-    # ... (Il resto della logica per creare il layout del DDT)
-    
+    # (Codice per ricreare il layout del DDT)
+    # ...
     doc.build(story)
 
 def send_email_with_attachments(to_address, subject, body_html, attachments):
@@ -493,13 +485,14 @@ def ddt_setup():
         buffer = io.BytesIO()
         ddt_data = request.form.to_dict()
         ddt_data['n_ddt'] = n_ddt
-        generate_ddt_pdf(buffer, ddt_data, articoli, {})
+        destinatario_scelto = destinatari.get(request.form.get('destinatario_key'))
+        generate_ddt_pdf(buffer, ddt_data, articoli, {}, destinatario_scelto)
         buffer.seek(0)
         
         flash(f"Articoli scaricati con DDT N. {n_ddt}", "success")
         return send_file(buffer, as_attachment=True, download_name=f'DDT_{n_ddt.replace("/", "-")}.pdf', mimetype='application/pdf')
 
-    return render_template('ddt_setup.html', articoli=articoli, ids=ids_str, destinatari=destinatari)
+    return render_template('ddt_setup.html', articoli=articoli, ids=ids_str, destinatari=destinatari, today=date.today().isoformat())
 
 @app.route('/etichetta', methods=['GET', 'POST'])
 def etichetta_manuale():
@@ -657,3 +650,4 @@ with app.app_context():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     app.run(host='0.0.0.0', port=port, debug=False)
+
