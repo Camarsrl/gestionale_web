@@ -1,32 +1,55 @@
 {% extends "layout.html" %}
+
 {% block content %}
 <div class="card p-4">
-    <h3>Modifica Multipla di {{ articoli|length }} Articoli</h3>
-    <p class="text-muted">Seleziona i campi che vuoi aggiornare spuntando la casella corrispondente. Solo i campi selezionati e compilati verranno applicati a tutti gli articoli scelti.</p>
+    <h3>Modifica Multipla Articoli</h3>
+    <p class="text-muted">Modifica i campi per i {{ articoli|length }} articoli selezionati. Solo i campi compilati verranno aggiornati.</p>
     <hr>
-    <form method="POST">
+    <form method="post">
         <div class="row g-3">
-            {% set fields = [
-                ('cliente', 'Cliente'), ('fornitore', 'Fornitore'), ('commessa', 'Commessa'), ('ordine', 'Ordine'),
-                ('posizione', 'Posizione'), ('stato', 'Stato'), ('data_uscita', 'Data Uscita (GG/MM/AAAA)'), ('n_ddt_uscita', 'N. DDT Uscita')
-            ] %}
-
-            {% for name, label in fields %}
-            <div class="col-md-6">
-                <div class="input-group">
-                    <div class="input-group-text">
-                        <input class="form-check-input mt-0" type="checkbox" name="update_{{ name }}" onchange="document.getElementsByName('{{ name }}')[0].disabled = !this.checked;">
-                    </div>
-                    <input type="text" class="form-control" name="{{ name }}" placeholder="{{ label }}" disabled>
-                </div>
+            <div class="col-md-4">
+                <label class="form-label">
+                    <input type="checkbox" name="update_posizione"> Posizione
+                </label>
+                <input type="text" class="form-control" name="posizione">
             </div>
-            {% endfor %}
+            <div class="col-md-4">
+                <label class="form-label">
+                    <input type="checkbox" name="update_stato"> Stato
+                </label>
+                <input type="text" class="form-control" name="stato">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">
+                    <input type="checkbox" name="update_commessa"> Commessa
+                </label>
+                <input type="text" class="form-control" name="commessa">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">
+                    <input type="checkbox" name="update_n_ddt_uscita"> N. DDT Uscita
+                </label>
+                <input type="text" class="form-control" name="n_ddt_uscita">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">
+                    <input type="checkbox" name="update_data_uscita"> Data Uscita
+                </label>
+                <input type="date" class="form-control" name="data_uscita">
+            </div>
         </div>
         <div class="mt-4">
-            <button type="submit" class="btn btn-primary" onclick="return confirm('Sei sicuro di voler applicare queste modifiche a tutti gli articoli selezionati? L\'operazione non è reversibile.');">Applica Modifiche</button>
+            <button type="submit" class="btn btn-primary">Applica Modifiche</button>
             <a href="{{ url_for('index') }}" class="btn btn-secondary">Annulla</a>
         </div>
     </form>
+
+    <h5 class="mt-5">Articoli Selezionati</h5>
+    <ul class="list-group">
+        {% for articolo in articoli %}
+        <li class="list-group-item">{{ articolo.id }} - {{ articolo.descrizione }}</li>
+        {% endfor %}
+    </ul>
 </div>
 {% endblock %}
 
