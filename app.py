@@ -29,14 +29,12 @@ from reportlab.lib.units import cm, mm
 # --- 2. CONFIGURAZIONE INIZIALE ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 
-# Configurazione per usare il disco persistente di Render
 DATA_DIR = Path(os.environ.get('RENDER_DISK_PATH', Path(__file__).resolve().parent))
 UPLOAD_FOLDER = DATA_DIR / 'uploads_web'
 BACKUP_FOLDER = DATA_DIR / 'backup_web'
 CONFIG_FOLDER = DATA_DIR / 'config'
 STATIC_FOLDER = Path(__file__).resolve().parent / 'static'
 
-# Creazione delle cartelle necessarie sul disco
 for folder in [UPLOAD_FOLDER, BACKUP_FOLDER, CONFIG_FOLDER, STATIC_FOLDER]:
     os.makedirs(folder, exist_ok=True)
 
@@ -66,14 +64,6 @@ USER_CREDENTIALS = {
 ADMIN_USERS = {'OPS', 'CUSTOMS', 'TAZIO', 'DIEGO', 'ADMIN'}
 
 # --- 4. MODELLI DEL DATABASE ---
-class Utente(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    password_hash = db.Column(db.String(200), nullable=False)
-    ruolo = db.Column(db.String(20), nullable=False)
-    def set_password(self, password): self.password_hash = generate_password_hash(password)
-    def check_password(self, password): return check_password_hash(self.password_hash, password)
-
 class Articolo(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     codice_articolo = db.Column(db.String(100))
@@ -120,7 +110,7 @@ def to_float_safe(val):
 def to_int_safe(val):
     f_val = to_float_safe(val)
     return int(f_val) if f_val is not None else None
-    
+
 def parse_date_safe(date_string):
     if not date_string: return None
     for fmt in ('%Y-%m-%d', '%d/%m/%Y'):
@@ -130,7 +120,7 @@ def parse_date_safe(date_string):
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-    
+
 def calculate_m2_m3(form_data):
     l = to_float_safe(form_data.get('lunghezza', 0)) or 0
     w = to_float_safe(form_data.get('larghezza', 0)) or 0
@@ -186,49 +176,36 @@ def generate_ddt_pdf(buffer, ddt_data, articoli, destinatario_info):
     styles = getSampleStyleSheet()
     styles.add(ParagraphStyle(name='BodyText', parent=styles['Normal'], spaceBefore=3, spaceAfter=3, leading=12))
     styles.add(ParagraphStyle(name='HeaderText', parent=styles['BodyText'], alignment=TA_LEFT))
-    
-    # --- 1. INTESTAZIONE: LOGO E MITTENTE ---
+
     logo_path = STATIC_FOLDER / 'logo camar.jpg'
     logo = RLImage(logo_path, width=6*cm, height=3*cm) if logo_path.exists() else Spacer(0, 0)
     
-    mittente_text = """
-        <b>CAMAR S.R.L.</b><br/>
-        Via Luigi Canepa, 2<br/>
-        16165 Genova (GE)<br/>
-        P.IVA / C.F. 03429300101
-    """
+    mittente_text = """<b>CAMAR S.R.L.</b><br/>Via Luigi Canepa, 2<br/>16165 Genova (GE)<br/>P.IVA / C.F. 03429300101"""
     mittente_p = Paragraph(mittente_text, styles['HeaderText'])
     
     header_table = Table([[logo, mittente_p]], colWidths=[7*cm, 11*cm], style=[('VALIGN', (0,0), (-1,-1), 'TOP')])
     story.append(header_table)
     story.append(Spacer(1, 1*cm))
     
-    # --- 2. DESTINATARIO E DETTAGLI DDT ---
     dest_rag_soc = destinatario_info.get('ragione_sociale', '')
     dest_indirizzo = destinatario_info.get('indirizzo', '')
     dest_piva = destinatario_info.get('piva', '')
-    destinatario_text = f"""
-        <b>Spett.le</b><br/>
-        {dest_rag_soc}<br/>
-        {dest_indirizzo}<br/>
-        P.IVA: {dest_piva}
-    """
+    destinatario_text = f"""<b>Spett.le</b><br/>{dest_rag_soc}<br/>{dest_indirizzo}<br/>P.IVA: {dest_piva}"""
     destinatario_p = Paragraph(destinatario_text, styles['BodyText'])
     
-    ddt_details_text = f"""
-        <b>DOCUMENTO DI TRASPORTO</b><br/>
-        <b>DDT N°:</b> {ddt_data.get('n_ddt', 'N/A')}<br/>
-        <b>Data:</b> {parse_date_safe(ddt_data.get('data_uscita')).strftime('%d/%m/%Y')}<br/>
-    """
+    data_uscita_str = ""
+    data_uscita_obj = parse_date_safe(ddt_data.get('data_uscita'))
+    if data_uscita_obj:
+        data_uscita_str = data_uscita_obj.strftime('%d/%m/%Y')
+        
+    ddt_details_text = f"""<b>DOCUMENTO DI TRASPORTO</b><br/><b>DDT N°:</b> {ddt_data.get('n_ddt', 'N/A')}<br/><b>Data:</b> {data_uscita_str}<br/>"""
     ddt_details_p = Paragraph(ddt_details_text, styles['BodyText'])
     
     details_table = Table([[destinatario_p, ddt_details_p]], colWidths=[10*cm, 8*cm], style=[('VALIGN', (0,0), (-1,-1), 'TOP')])
     story.append(details_table)
     story.append(Spacer(1, 1*cm))
     
-    # --- 3. TABELLA ARTICOLI ---
     table_data = [['Descrizione della merce', 'Cod. Articolo', 'Commessa', 'Q.tà Colli', 'Peso Lordo Kg']]
-    
     total_colli = 0
     total_peso = 0.0
     
@@ -254,21 +231,15 @@ def generate_ddt_pdf(buffer, ddt_data, articoli, destinatario_info):
     story.append(article_table)
     story.append(Spacer(1, 0.5*cm))
     
-    # --- 4. CAUSALE E TOTALI ---
     causale = Paragraph(f"<b>Causale del trasporto:</b> {ddt_data.get('causale_trasporto', 'C/Lavorazione')}", styles['BodyText'])
     story.append(causale)
     story.append(Spacer(1, 1*cm))
 
-    summary_text = f"""
-        <b>Aspetto dei beni:</b> {ddt_data.get('aspetto_beni', 'Scatole/Pallet')}<br/>
-        <b>Totale Colli:</b> {total_colli}<br/>
-        <b>Peso Totale Lordo Kg:</b> {total_peso:.2f}<br/>
-    """
+    summary_text = f"""<b>Aspetto dei beni:</b> {ddt_data.get('aspetto_beni', 'Scatole/Pallet')}<br/><b>Totale Colli:</b> {total_colli}<br/><b>Peso Totale Lordo Kg:</b> {total_peso:.2f}<br/>"""
     summary_p = Paragraph(summary_text, styles['BodyText'])
     story.append(summary_p)
     story.append(Spacer(1, 2*cm))
 
-    # --- 5. FIRME ---
     signature_table = Table([
         ['<b>Firma Vettore</b>', '<b>Firma Destinatario</b>'],
         [Spacer(1, 2*cm), Spacer(1, 2*cm)],
@@ -535,6 +506,42 @@ def buono_setup():
 
     return render_template('buono_setup.html', articoli=articoli, ids=ids_str, primo_articolo=primo_articolo)
 
+# ===============================================
+# NUOVA FUNZIONE PER ANTEPRIMA BUONO
+# ===============================================
+@app.route('/buono/preview', methods=['POST'])
+def buono_preview():
+    if session.get('role') != 'admin': abort(403)
+    
+    ids_str = request.args.get('ids', '')
+    if not ids_str:
+        return "Errore: Articoli non specificati.", 400
+    
+    ids = [int(i) for i in ids_str.split(',')]
+    articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
+    primo_articolo = articoli[0] if articoli else None
+
+    dati_buono = {
+        'numero_buono': request.form.get('buono_n', '(ANTEPRIMA)'),
+        'cliente': request.form.get('cliente'),
+        'commessa': request.form.get('commessa'),
+        'protocollo': request.form.get('protocollo'),
+        'fornitore': primo_articolo.fornitore if primo_articolo else '',
+        'data_emissione': date.today().strftime('%d/%m/%Y'),
+    }
+
+    buffer = io.BytesIO()
+    generate_buono_prelievo_pdf(buffer, dati_buono, articoli)
+    buffer.seek(0)
+    
+    return send_file(
+        buffer, 
+        as_attachment=True, 
+        download_name='Anteprima_Buono_Prelievo.pdf', 
+        mimetype='application/pdf'
+    )
+# ===============================================
+
 @app.route('/ddt/setup', methods=['GET', 'POST'])
 def ddt_setup():
     if session.get('role') != 'admin': abort(403)
@@ -553,9 +560,16 @@ def ddt_setup():
         if not articoli:
             return redirect(url_for('index'))
 
-    dest_path = CONFIG_FOLDER / 'destinatari_saved.json'; destinatari = {}
+    dest_path = CONFIG_FOLDER / 'destinatari_saved.json'
+    destinatari = {}
     if dest_path.exists():
-        with open(dest_path, 'r', encoding='utf-8') as f: destinatari = json.load(f)
+        try:
+            with open(dest_path, 'r', encoding='utf-8') as f: 
+                data = json.load(f)
+                if isinstance(data, dict):
+                    destinatari = data
+        except (json.JSONDecodeError, IOError):
+            pass
 
     if request.method == 'POST':
         n_ddt = request.form.get('n_ddt')
@@ -728,9 +742,6 @@ def initialize_app():
 
     with app.app_context():
         db.create_all()
-        # La logica di login con USER_CREDENTIALS è mantenuta per l'autenticazione,
-        # ma la creazione automatica di utenti nel DB non è più necessaria
-        # se gestita in altro modo o se il DB è persistente.
         logging.info("Database verificato/creato.")
 
 initialize_app()
