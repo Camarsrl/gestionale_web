@@ -20,7 +20,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 import pandas as pd
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage, PageBreak
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.lib import colors
@@ -29,13 +29,14 @@ from reportlab.lib.units import cm, mm
 # --- 2. CONFIGURAZIONE INIZIALE ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 
-# Il codice rileva automaticamente il disco di Render. È GIA' CORRETTO.
+# Configurazione per usare il disco persistente di Render
 DATA_DIR = Path(os.environ.get('RENDER_DISK_PATH', Path(__file__).resolve().parent))
 UPLOAD_FOLDER = DATA_DIR / 'uploads_web'
 BACKUP_FOLDER = DATA_DIR / 'backup_web'
 CONFIG_FOLDER = DATA_DIR / 'config'
 STATIC_FOLDER = Path(__file__).resolve().parent / 'static'
 
+# Creazione delle cartelle necessarie sul disco
 for folder in [UPLOAD_FOLDER, BACKUP_FOLDER, CONFIG_FOLDER, STATIC_FOLDER]:
     os.makedirs(folder, exist_ok=True)
 
@@ -179,7 +180,6 @@ def generate_buono_prelievo_pdf(buffer, dati_buono, articoli):
 
     doc.build(story)
 
-# NUOVA AGGIUNTA - Implementazione completa della funzione di generazione PDF per DDT
 def generate_ddt_pdf(buffer, ddt_data, articoli, destinatario_info):
     doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1*cm, bottomMargin=2.5*cm, leftMargin=1.5*cm, rightMargin=1.5*cm)
     story = []
@@ -249,7 +249,7 @@ def generate_ddt_pdf(buffer, ddt_data, articoli, destinatario_info):
         ('GRID', (0,0), (-1,-1), 1, colors.black),
         ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('ALIGN', (3,1), (-1,-1), 'CENTER'), # Allinea quantità e peso
+        ('ALIGN', (3,1), (-1,-1), 'CENTER'),
     ]))
     story.append(article_table)
     story.append(Spacer(1, 0.5*cm))
@@ -312,7 +312,6 @@ def send_email_with_attachments(to_address, subject, body_html, attachments):
         server.send_message(msg)
 
 # --- 6. ROTTE DELL'APPLICAZIONE ---
-# ... (tutte le altre rotte restano invariate)
 @app.before_request
 def check_login():
     if 'user' not in session and request.endpoint not in ['login', 'static']:
@@ -536,7 +535,6 @@ def buono_setup():
 
     return render_template('buono_setup.html', articoli=articoli, ids=ids_str, primo_articolo=primo_articolo)
 
-# MODIFICATO - Logica per la creazione del DDT
 @app.route('/ddt/setup', methods=['GET', 'POST'])
 def ddt_setup():
     if session.get('role') != 'admin': abort(403)
@@ -546,7 +544,6 @@ def ddt_setup():
     ids = [int(i) for i in ids_str.split(',')]
     articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
     
-    # Controllo se alcuni articoli sono già usciti
     articoli_gia_usciti = [art.id for art in articoli if art.n_ddt_uscita]
     if articoli_gia_usciti:
         flash(f"Attenzione: Gli articoli ID {articoli_gia_usciti} risultano già spediti e non verranno inclusi.", "warning")
@@ -556,13 +553,11 @@ def ddt_setup():
         if not articoli:
             return redirect(url_for('index'))
 
-    # Carica i destinatari salvati
     dest_path = CONFIG_FOLDER / 'destinatari_saved.json'; destinatari = {}
     if dest_path.exists():
         with open(dest_path, 'r', encoding='utf-8') as f: destinatari = json.load(f)
 
     if request.method == 'POST':
-        # MODIFICATO: Prende il numero DDT dal form invece di generarlo
         n_ddt = request.form.get('n_ddt')
         if not n_ddt:
             flash("Il numero del DDT è un campo obbligatorio.", "danger")
@@ -570,17 +565,15 @@ def ddt_setup():
 
         data_uscita = parse_date_safe(request.form.get('data_uscita')) or date.today()
         
-        # Aggiorna gli articoli nel database
         for art in articoli:
             art.n_ddt_uscita = n_ddt
             art.data_uscita = data_uscita
             art.stato = 'Uscito'
         db.session.commit()
         
-        # Prepara i dati e genera il PDF
         buffer = io.BytesIO()
         ddt_data = request.form.to_dict()
-        ddt_data['n_ddt'] = n_ddt # Assicura che il numero DDT sia nei dati per il PDF
+        ddt_data['n_ddt'] = n_ddt
         
         destinatario_scelto = destinatari.get(request.form.get('destinatario_key'), {})
         
@@ -590,7 +583,6 @@ def ddt_setup():
         flash(f"Articoli scaricati con DDT N. {n_ddt}", "success")
         return send_file(buffer, as_attachment=True, download_name=f'DDT_{n_ddt.replace("/", "-")}.pdf', mimetype='application/pdf')
 
-    # Per il metodo GET, mostra la pagina di setup
     return render_template('ddt_setup.html', articoli=articoli, ids=ids_str, destinatari=destinatari, today=date.today().isoformat())
 
 
@@ -697,7 +689,7 @@ def invia_email():
     allegati_da_inviare = Allegato.query.filter(Allegato.id.in_(allegati_ids)).all()
     allegati_paths = [(UPLOAD_FOLDER / a.filename, a.filename) for a in allegati_da_inviare]
 
-    firma_html = """<p>Cordiali Saluti,<br><b>Camar Srl</b></p>""" # Esempio di firma
+    firma_html = """<p>Cordiali Saluti,<br><b>Camar Srl</b></p>"""
     body_html = f"<html><body><p>Buongiorno,</p><p>In allegato i file richiesti.</p><br>{firma_html}</body></html>"
 
     try:
@@ -734,14 +726,14 @@ def initialize_app():
             except Exception as e:
                 logging.error(f"Impossibile copiare '{filename}': {e}")
 
-    db.create_all()
-    # NB: La creazione degli utenti con password in chiaro è stata rimossa per sicurezza.
-    # Questo codice presuppone che gli utenti vengano gestiti diversamente o siano già creati.
-    # La logica di login con USER_CREDENTIALS è mantenuta per retrocompatibilità.
-    logging.info("Database verificato/creato.")
+    with app.app_context():
+        db.create_all()
+        # La logica di login con USER_CREDENTIALS è mantenuta per l'autenticazione,
+        # ma la creazione automatica di utenti nel DB non è più necessaria
+        # se gestita in altro modo o se il DB è persistente.
+        logging.info("Database verificato/creato.")
 
-with app.app_context():
-    initialize_app()
+initialize_app()
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
