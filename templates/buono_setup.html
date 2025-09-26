@@ -4,7 +4,7 @@
     <h3>Crea Buono di Prelievo</h3>
     <p class="text-muted">Inserisci un numero di buono per gli {{ articoli|length }} articoli selezionati. Verrà generato un PDF e il campo 'Buono N.' verrà aggiornato.</p>
     <hr>
-    <form method="POST">
+    <form method="POST" id="buonoForm">
         <div class="row g-3">
             <div class="col-md-4">
                 <label for="buono_n" class="form-label">Numero Buono (*)</label>
@@ -26,6 +26,13 @@
 
         <div class="mt-4">
             <button type="submit" class="btn btn-primary">Genera PDF e Salva</button>
+            
+            <button type="submit" 
+                    formaction="{{ url_for('buono_preview', ids=request.args.get('ids')) }}" 
+                    formtarget="_blank" 
+                    class="btn btn-info">
+                Anteprima PDF
+            </button>
             <a href="{{ url_for('index') }}" class="btn btn-secondary">Annulla</a>
         </div>
     </form>
