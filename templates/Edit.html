@@ -1,169 +1,107 @@
 {% extends "layout.html" %}
 
 {% block content %}
-{% set art = articolo %}
-
 <div class="card p-4">
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h3 class="mb-0">{{ title }}</h3>
-    <a href="{{ url_for('index') }}" class="btn btn-sm btn-outline-secondary">Torna alla lista</a>
-  </div>
+    <h3>{{ title }}</h3>
+    <hr>
+    <form method="post" enctype="multipart/form-data">
+        <h5 class="mt-3">Dati Anagrafici</h5>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label for="codice_articolo" class="form-label">Codice Articolo</label>
+                <input type="text" class="form-control" id="codice_articolo" name="codice_articolo" value="{{ articolo.codice_articolo if articolo else '' }}">
+            </div>
+            <div class="col-md-6">
+                <label for="descrizione" class="form-label">Descrizione</label>
+                <input type="text" class="form-control" id="descrizione" name="descrizione" value="{{ articolo.descrizione if articolo else '' }}">
+            </div>
+            <div class="col-md-6">
+                <label for="cliente" class="form-label">Cliente</label>
+                <input type="text" class="form-control" id="cliente" name="cliente" value="{{ articolo.cliente if articolo else '' }}">
+            </div>
+            <div class="col-md-6">
+                <label for="fornitore" class="form-label">Fornitore</label>
+                <input type="text" class="form-control" id="fornitore" name="fornitore" value="{{ articolo.fornitore if articolo else '' }}">
+            </div>
+        </div>
 
-  <form method="post" enctype="multipart/form-data">
-    {# Se usi Flask‑WTF, lascia questa riga; altrimenti rimuovila #}
-    {% if csrf_token is defined %}{{ csrf_token() }}{% endif %}
+        <h5 class="mt-4">Dati Logistici</h5>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label for="n_colli" class="form-label">Numero Colli</label>
+                <input type="number" class="form-control" id="n_colli" name="n_colli" value="{{ articolo.n_colli if articolo else '' }}">
+            </div>
+            <div class="col-md-3">
+                <label for="peso" class="form-label">Peso (Kg)</label>
+                <input type="text" class="form-control" id="peso" name="peso" value="{{ articolo.peso if articolo else '' }}">
+            </div>
+            <div class="col-md-2">
+                <label for="lunghezza" class="form-label">Lunghezza (m)</label>
+                <input type="text" class="form-control" id="lunghezza" name="lunghezza" value="{{ articolo.lunghezza if articolo else '' }}">
+            </div>
+            <div class="col-md-2">
+                <label for="larghezza" class="form-label">Larghezza (m)</label>
+                <input type="text" class="form-control" id="larghezza" name="larghezza" value="{{ articolo.larghezza if articolo else '' }}">
+            </div>
+             <div class="col-md-2">
+                <label for="altezza" class="form-label">Altezza (m)</label>
+                <input type="text" class="form-control" id="altezza" name="altezza" value="{{ articolo.altezza if articolo else '' }}">
+            </div>
+        </div>
 
-    <div class="row g-3">
-      <!-- Colonna Sinistra -->
-      <div class="col-md-6">
-        <h5>Dettagli principali</h5>
+        <h5 class="mt-4">Dati Ingresso</h5>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label for="data_ingresso" class="form-label">Data Ingresso</label>
+                <input type="date" class="form-control" id="data_ingresso" name="data_ingresso" value="{{ articolo.data_ingresso.isoformat() if articolo and articolo.data_ingresso else '' }}">
+            </div>
+            <div class="col-md-4">
+                <label for="n_ddt_ingresso" class="form-label">N. DDT Ingresso</label>
+                <input type="text" class="form-control" id="n_ddt_ingresso" name="n_ddt_ingresso" value="{{ articolo.n_ddt_ingresso if articolo else '' }}">
+            </div>
+             <div class="col-md-4">
+                <label for="commessa" class="form-label">Commessa</label>
+                <input type="text" class="form-control" id="commessa" name="commessa" value="{{ articolo.commessa if articolo else '' }}">
+            </div>
+        </div>
+        
+        <h5 class="mt-4">Altri Dati</h5>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label for="posizione" class="form-label">Posizione</label>
+                <input type="text" class="form-control" id="posizione" name="posizione" value="{{ articolo.posizione if articolo else '' }}">
+            </div>
+            <div class="col-md-8">
+                <label for="note" class="form-label">Note</label>
+                <textarea class="form-control" id="note" name="note" rows="1">{{ articolo.note if articolo else '' }}</textarea>
+            </div>
+        </div>
 
+        {% if articolo %}
+        <h5 class="mt-4">Allegati</h5>
         <div class="mb-3">
-          <label for="codice_articolo" class="form-label">Codice Articolo</label>
-          <input id="codice_articolo" name="codice_articolo" class="form-control" value="{{ art.codice_articolo|default('') }}" autocomplete="off">
+            <label for="files" class="form-label">Carica nuovi allegati (foto o documenti)</label>
+            <input class="form-control" type="file" id="files" name="files" multiple>
         </div>
-
-        <div class="mb-3">
-          <label for="descrizione" class="form-label">Descrizione</label>
-          <textarea id="descrizione" name="descrizione" class="form-control" rows="3">{{ art.descrizione|default('') }}</textarea>
-        </div>
-
-        <div class="row">
-          <div class="col-md-6 mb-3">
-            <label for="cliente" class="form-label">Cliente</label>
-            <input id="cliente" name="cliente" class="form-control" value="{{ art.cliente|default('') }}">
-          </div>
-          <div class="col-md-6 mb-3">
-            <label for="fornitore" class="form-label">Fornitore</label>
-            <input id="fornitore" name="fornitore" class="form-control" value="{{ art.fornitore|default('') }}">
-          </div>
-        </div>
-
-        <div class="row">
-          <div class="col-md-6 mb-3">
-            <label for="commessa" class="form-label">Commessa</label>
-            <input id="commessa" name="commessa" class="form-control" value="{{ art.commessa|default('') }}">
-          </div>
-          <div class="col-md-6 mb-3">
-            <label for="ordine" class="form-label">Ordine</label>
-            <input id="ordine" name="ordine" class="form-control" value="{{ art.ordine|default('') }}">
-          </div>
-        </div>
-
-        <div class="row">
-          <div class="col-md-6 mb-3">
-            <label for="protocollo" class="form-label">Protocollo</label>
-            <input id="protocollo" name="protocollo" class="form-control" value="{{ art.protocollo|default('') }}">
-          </div>
-          <div class="col-md-6 mb-3">
-            <label for="serial_number" class="form-label">Serial Number</label>
-            <input id="serial_number" name="serial_number" class="form-control" value="{{ art.serial_number|default('') }}">
-          </div>
-        </div>
-      </div>
-
-      <!-- Colonna Destra -->
-      <div class="col-md-6">
-        <h5>Dati logistici</h5>
-
-        <div class="row">
-          <div class="col-md-4 mb-3">
-            <label for="n_colli" class="form-label">N. Colli</label>
-            <input id="n_colli" type="number" min="0" step="1" name="n_colli" class="form-control" value="{{ art.n_colli|default('') }}">
-          </div>
-          <div class="col-md-4 mb-3">
-            <label for="peso" class="form-label">Peso (kg)</label>
-            <input id="peso" type="number" min="0" step="0.01" inputmode="decimal" name="peso" class="form-control" placeholder="Es. 123,45" value="{{ art.peso|default('') }}">
-          </div>
-          <div class="col-md-4 mb-3">
-            <label for="pezzo" class="form-label">Pezzo</label>
-            <input id="pezzo" name="pezzo" class="form-control" value="{{ art.pezzo|default('') }}">
-          </div>
-        </div>
-
-        <h6>Dimensioni (m)</h6>
-        <div class="row">
-          <div class="col-md-4 mb-3">
-            <label for="larghezza" class="form-label">Larghezza</label>
-            <input id="larghezza" type="number" min="0" step="0.001" inputmode="decimal" name="larghezza" class="form-control" placeholder="Es. 1,5" value="{{ art.larghezza|default('') }}">
-          </div>
-          <div class="col-md-4 mb-3">
-            <label for="lunghezza" class="form-label">Lunghezza</label>
-            <input id="lunghezza" type="number" min="0" step="0.001" inputmode="decimal" name="lunghezza" class="form-control" placeholder="Es. 2,0" value="{{ art.lunghezza|default('') }}">
-          </div>
-          <div class="col-md-4 mb-3">
-            <label for="altezza" class="form-label">Altezza</label>
-            <input id="altezza" type="number" min="0" step="0.001" inputmode="decimal" name="altezza" class="form-control" placeholder="Es. 0,8" value="{{ art.altezza|default('') }}">
-          </div>
-        </div>
-
-        <div class="row">
-          <div class="col-md-6 mb-3">
-            <label for="posizione" class="form-label">Posizione</label>
-            <input id="posizione" name="posizione" class="form-control" value="{{ art.posizione|default('') }}">
-          </div>
-          <div class="col-md-6 mb-3">
-            <label for="stato" class="form-label">Stato</label>
-            <input id="stato" name="stato" class="form-control" value="{{ art.stato|default('In giacenza') }}" list="statiSuggeriti">
-            <datalist id="statiSuggeriti">
-              <option value="In giacenza"></option>
-              <option value="In uscita"></option>
-              <option value="Consegnato"></option>
-            </datalist>
-          </div>
-        </div>
-
-        <div class="mb-3">
-          <label for="note" class="form-label">Note</label>
-          <textarea id="note" name="note" class="form-control" rows="2">{{ art.note|default('') }}</textarea>
-        </div>
-      </div>
-
-      <hr class="my-3">
-
-      <!-- Sezione Allegati -->
-      {% if art and art.id %}
-      <div class="col-12">
-        <h5>Allegati</h5>
-
-        {% set lista_allegati = art.allegati|default([]) %}
-        {% if lista_allegati and lista_allegati|length > 0 %}
-          <ul class="list-group list-group-flush mb-3">
-            {% for allegato in lista_allegati %}
+        {% if articolo.allegati %}
+        <p>Allegati presenti:</p>
+        <ul class="list-group">
+            {% for allegato in articolo.allegati %}
             <li class="list-group-item d-flex justify-content-between align-items-center">
-              <a href="{{ url_for('uploaded_file', filename=allegato.filename) }}" target="_blank" rel="noopener">{{ allegato.filename }}</a>
-
-              {% if session.get('role') == 'admin' %}
-              <form action="{{ url_for('delete_attachment', id=allegato.id) }}" method="post" class="ms-3" onsubmit="return confirm('Sei sicuro di voler eliminare questo allegato?');">
-                {% if csrf_token is defined %}{{ csrf_token() }}{% endif %}
-                <button type="submit" class="btn btn-sm btn-outline-danger">Elimina</button>
-              </form>
-              {% endif %}
+                <a href="{{ url_for('uploaded_file', filename=allegato.filename) }}" target="_blank">{{ allegato.filename }}</a>
+                <form action="{{ url_for('delete_attachment', id=allegato.id) }}" method="post" onsubmit="return confirm('Sei sicuro di voler eliminare questo allegato?');">
+                    <button type="submit" class="btn btn-sm btn-danger">Elimina</button>
+                </form>
             </li>
             {% endfor %}
-          </ul>
-        {% else %}
-          <p class="text-muted">Nessun allegato presente.</p>
+        </ul>
+        {% endif %}
         {% endif %}
 
-        {% if session.get('role') == 'admin' %}
-        <div class="mb-3">
-          <label for="formFileMultiple" class="form-label">Carica nuovi allegati (PDF, JPG, PNG)</label>
-          <input id="formFileMultiple" class="form-control" type="file" name="files[]" multiple accept="application/pdf,image/jpeg,image/png">
+        <div class="mt-4">
+            <button type="submit" class="btn btn-primary">Salva Modifiche</button>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">Annulla</a>
         </div>
-        {% endif %}
-      </div>
-      {% endif %}
-    </div>
-
-    {% if session.get('role') == 'admin' %}
-    <div class="mt-4">
-      <button type="submit" class="btn btn-primary">Salva modifiche</button>
-    </div>
-    {% endif %}
-  </form>
+    </form>
 </div>
-
 {% endblock %}
-
-
