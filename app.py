@@ -506,42 +506,6 @@ def buono_setup():
 
     return render_template('buono_setup.html', articoli=articoli, ids=ids_str, primo_articolo=primo_articolo)
 
-# ===============================================
-# NUOVA FUNZIONE PER ANTEPRIMA BUONO
-# ===============================================
-@app.route('/buono/preview', methods=['POST'])
-def buono_preview():
-    if session.get('role') != 'admin': abort(403)
-    
-    ids_str = request.args.get('ids', '')
-    if not ids_str:
-        return "Errore: Articoli non specificati.", 400
-    
-    ids = [int(i) for i in ids_str.split(',')]
-    articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
-    primo_articolo = articoli[0] if articoli else None
-
-    dati_buono = {
-        'numero_buono': request.form.get('buono_n', '(ANTEPRIMA)'),
-        'cliente': request.form.get('cliente'),
-        'commessa': request.form.get('commessa'),
-        'protocollo': request.form.get('protocollo'),
-        'fornitore': primo_articolo.fornitore if primo_articolo else '',
-        'data_emissione': date.today().strftime('%d/%m/%Y'),
-    }
-
-    buffer = io.BytesIO()
-    generate_buono_prelievo_pdf(buffer, dati_buono, articoli)
-    buffer.seek(0)
-    
-    return send_file(
-        buffer, 
-        as_attachment=True, 
-        download_name='Anteprima_Buono_Prelievo.pdf', 
-        mimetype='application/pdf'
-    )
-# ===============================================
-
 @app.route('/ddt/setup', methods=['GET', 'POST'])
 def ddt_setup():
     if session.get('role') != 'admin': abort(403)
@@ -568,8 +532,8 @@ def ddt_setup():
                 data = json.load(f)
                 if isinstance(data, dict):
                     destinatari = data
-        except (json.JSONDecodeError, IOError):
-            pass
+        except json.JSONDecodeError:
+            pass # File is empty or malformed, keep destinatari as empty dict
 
     if request.method == 'POST':
         n_ddt = request.form.get('n_ddt')
