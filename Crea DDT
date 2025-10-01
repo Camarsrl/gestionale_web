@@ -1,0 +1,69 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="card p-4">
+    <h3>Crea Documento di Trasporto (DDT)</h3>
+    <p class="text-muted">Conferma i dati per gli {{ articoli|length }} articoli selezionati. Verrà generato un PDF e gli articoli verranno scaricati dal magazzino.</p>
+    <hr>
+    <form method="POST">
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <label for="destinatario_key" class="form-label">Destinatario (*)</label>
+                <select name="destinatario_key" id="destinatario_key" class="form-select" required>
+                    <option value="" disabled selected>-- Seleziona un destinatario --</option>
+                    {% for key, dest in destinatari.items() %}
+                        <option value="{{ key }}">{{ key }} - {{ dest.ragione_sociale }}</option>
+                    {% endfor %}
+                </select>
+                 <small><a href="{{ url_for('gestione_destinatari') }}">Gestisci destinatari</a></small>
+            </div>
+            <div class="col-md-6">
+                <label for="data_uscita" class="form-label">Data Uscita (*)</label>
+                <input type="date" name="data_uscita" id="data_uscita" class="form-control" value="{{ today }}" required>
+            </div>
+            <div class="col-md-6">
+                <label for="n_ddt" class="form-label">Numero DDT (*)</label>
+                <input type="text" name="n_ddt" id="n_ddt" class="form-control" required placeholder="Es. 123/2025">
+            </div>
+            <div class="col-md-6">
+                <label for="vettore" class="form-label">Vettore</label>
+                <input type="text" name="vettore" id="vettore" class="form-control" placeholder="Nome del corriere/vettore">
+            </div>
+             <div class="col-md-6">
+                <label for="causale_trasporto" class="form-label">Causale Trasporto</label>
+                <input type="text" name="causale_trasporto" id="causale_trasporto" class="form-control" value="C/Lavorazione">
+            </div>
+             <div class="col-md-6">
+                <label for="aspetto_beni" class="form-label">Aspetto dei Beni</label>
+                <input type="text" name="aspetto_beni" id="aspetto_beni" class="form-control" value="Scatole/Pallet">
+            </div>
+        </div>
+
+        <h5>Articoli Inclusi</h5>
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Codice Articolo</th>
+                        <th>Descrizione</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for art in articoli %}
+                    <tr>
+                        <td>{{ art.id }}</td>
+                        <td>{{ art.codice_articolo }}</td>
+                        <td>{{ art.descrizione }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="mt-4">
+            <button type="submit" class="btn btn-primary">Genera DDT e Scarica Articoli</button>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">Annulla</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
