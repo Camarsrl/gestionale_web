@@ -1,0 +1,15 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="card p-4">
+    <h3>Modifica Multipla Articoli</h3>
+    <p class="text-muted">Applica una modifica a tutti gli {{ articoli|length }} articoli selezionati.</p>
+    <hr>
+    <form method="post">
+        <div class="mt-4">
+            <button type="submit" class="btn btn-primary">Applica Modifiche</button>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">Annulla</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
