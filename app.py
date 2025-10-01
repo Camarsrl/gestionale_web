@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 # --- 1. IMPORT LIBRERIE ---
 import os
 import shutil
@@ -134,32 +133,27 @@ def generate_buono_prelievo_pdf(buffer, dati_buono, articoli):
     doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1.5*cm, bottomMargin=2*cm, leftMargin=2*cm, rightMargin=2*cm)
     story = []
     styles = getSampleStyleSheet()
-
     logo_path = STATIC_FOLDER / 'logo camar.jpg'
     if logo_path.exists():
         img = RLImage(logo_path, width=7*cm, height=3.5*cm, hAlign='CENTER')
         story.append(img)
         story.append(Spacer(1, 1*cm))
-
     style_title = ParagraphStyle(name='Title', parent=styles['h1'], alignment=TA_CENTER, spaceAfter=6)
     style_subtitle = ParagraphStyle(name='SubTitle', parent=styles['h2'], alignment=TA_CENTER)
     story.append(Paragraph(f"BUONO PRELIEVO {dati_buono.get('numero_buono', '')}", style_title))
     story.append(Paragraph(f"{dati_buono.get('cliente', '')} - Commessa {dati_buono.get('commessa', '')}", style_subtitle))
     story.append(Spacer(1, 1*cm))
-
     style_body = ParagraphStyle(name='Body', parent=styles['Normal'], leading=14)
     story.append(Paragraph(f"<b>Data Emissione:</b> {dati_buono.get('data_emissione', '')}", style_body))
     story.append(Paragraph(f"<b>Commessa:</b> {dati_buono.get('commessa', '')}", style_body))
     story.append(Paragraph(f"<b>Fornitore:</b> {dati_buono.get('fornitore', '')}", style_body))
     story.append(Paragraph(f"<b>Protocollo:</b> {dati_buono.get('protocollo', '')}", style_body))
     story.append(Spacer(1, 1*cm))
-
     table_data = [['Ordine', 'Codice Articolo', 'Descrizione', 'Quantità', 'N.Arrivo']]
     for art in articoli:
         quantita = art.pezzo or art.n_colli or '1'
         n_arrivo = art.n_arrivo or ''
         table_data.append([art.ordine or 'None', art.codice_articolo or '', art.descrizione or '', quantita, n_arrivo])
-
     t = Table(table_data, colWidths=[2.5*cm, 4*cm, 7*cm, 2.5*cm, 2.5*cm])
     t.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 1, colors.black), ('BACKGROUND', (0,0), (-1,0), colors.lightgrey), ('VALIGN', (0,0), (-1,-1), 'TOP'), ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold')]))
     story.append(t)
@@ -167,7 +161,6 @@ def generate_buono_prelievo_pdf(buffer, dati_buono, articoli):
     story.append(Paragraph("Firma Magazzino: ________________________", style_body))
     story.append(Spacer(1, 1*cm))
     story.append(Paragraph("Firma Cliente: ________________________", style_body))
-
     doc.build(story)
 
 def generate_ddt_pdf(buffer, ddt_data, articoli, destinatario_info):
@@ -176,39 +169,30 @@ def generate_ddt_pdf(buffer, ddt_data, articoli, destinatario_info):
     styles = getSampleStyleSheet()
     styles.add(ParagraphStyle(name='BodyText', parent=styles['Normal'], spaceBefore=3, spaceAfter=3, leading=12))
     styles.add(ParagraphStyle(name='HeaderText', parent=styles['BodyText'], alignment=TA_LEFT))
-
     logo_path = STATIC_FOLDER / 'logo camar.jpg'
     logo = RLImage(logo_path, width=6*cm, height=3*cm) if logo_path.exists() else Spacer(0, 0)
-    
     mittente_text = """<b>CAMAR S.R.L.</b><br/>Via Luigi Canepa, 2<br/>16165 Genova (GE)<br/>P.IVA / C.F. 03429300101"""
     mittente_p = Paragraph(mittente_text, styles['HeaderText'])
-    
     header_table = Table([[logo, mittente_p]], colWidths=[7*cm, 11*cm], style=[('VALIGN', (0,0), (-1,-1), 'TOP')])
     story.append(header_table)
     story.append(Spacer(1, 1*cm))
-    
     dest_rag_soc = destinatario_info.get('ragione_sociale', '')
     dest_indirizzo = destinatario_info.get('indirizzo', '')
     dest_piva = destinatario_info.get('piva', '')
     destinatario_text = f"""<b>Spett.le</b><br/>{dest_rag_soc}<br/>{dest_indirizzo}<br/>P.IVA: {dest_piva}"""
     destinatario_p = Paragraph(destinatario_text, styles['BodyText'])
-    
     data_uscita_str = ""
     data_uscita_obj = parse_date_safe(ddt_data.get('data_uscita'))
     if data_uscita_obj:
         data_uscita_str = data_uscita_obj.strftime('%d/%m/%Y')
-        
     ddt_details_text = f"""<b>DOCUMENTO DI TRASPORTO</b><br/><b>DDT N°:</b> {ddt_data.get('n_ddt', 'N/A')}<br/><b>Data:</b> {data_uscita_str}<br/>"""
     ddt_details_p = Paragraph(ddt_details_text, styles['BodyText'])
-    
     details_table = Table([[destinatario_p, ddt_details_p]], colWidths=[10*cm, 8*cm], style=[('VALIGN', (0,0), (-1,-1), 'TOP')])
     story.append(details_table)
     story.append(Spacer(1, 1*cm))
-    
     table_data = [['Descrizione della merce', 'Cod. Articolo', 'Commessa', 'Q.tà Colli', 'Peso Lordo Kg']]
     total_colli = 0
     total_peso = 0.0
-    
     for art in articoli:
         table_data.append([
             Paragraph(art.descrizione or '', styles['BodyText']),
@@ -219,36 +203,27 @@ def generate_ddt_pdf(buffer, ddt_data, articoli, destinatario_info):
         ])
         total_colli += art.n_colli or 0
         total_peso += art.peso or 0.0
-        
     article_table = Table(table_data, colWidths=[7*cm, 3*cm, 3*cm, 2*cm, 3*cm])
     article_table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.lightgrey),
-        ('GRID', (0,0), (-1,-1), 1, colors.black),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('BACKGROUND', (0,0), (-1,0), colors.lightgrey), ('GRID', (0,0), (-1,-1), 1, colors.black),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ('ALIGN', (3,1), (-1,-1), 'CENTER'),
     ]))
     story.append(article_table)
     story.append(Spacer(1, 0.5*cm))
-    
     causale = Paragraph(f"<b>Causale del trasporto:</b> {ddt_data.get('causale_trasporto', 'C/Lavorazione')}", styles['BodyText'])
     story.append(causale)
     story.append(Spacer(1, 1*cm))
-
     summary_text = f"""<b>Aspetto dei beni:</b> {ddt_data.get('aspetto_beni', 'Scatole/Pallet')}<br/><b>Totale Colli:</b> {total_colli}<br/><b>Peso Totale Lordo Kg:</b> {total_peso:.2f}<br/>"""
     summary_p = Paragraph(summary_text, styles['BodyText'])
     story.append(summary_p)
     story.append(Spacer(1, 2*cm))
-
     signature_table = Table([
-        ['<b>Firma Vettore</b>', '<b>Firma Destinatario</b>'],
-        [Spacer(1, 2*cm), Spacer(1, 2*cm)],
+        ['<b>Firma Vettore</b>', '<b>Firma Destinatario</b>'], [Spacer(1, 2*cm), Spacer(1, 2*cm)],
         ['___________________', '___________________']
     ], colWidths=[9*cm, 9*cm], style=[('ALIGN', (0,0), (-1,-1), 'CENTER')])
     story.append(signature_table)
-    
     doc.build(story)
-
 
 def send_email_with_attachments(to_address, subject, body_html, attachments):
     smtp_host = os.environ.get("SMTP_HOST")
@@ -256,17 +231,14 @@ def send_email_with_attachments(to_address, subject, body_html, attachments):
     smtp_user = os.environ.get("SMTP_USER")
     smtp_pass = os.environ.get("SMTP_PASS")
     from_addr = os.environ.get("FROM_EMAIL", smtp_user)
-
     if not all([smtp_host, smtp_port, smtp_user, smtp_pass, from_addr]):
         raise ValueError("Configurazione SMTP incompleta. Imposta le variabili d'ambiente.")
-
     msg = EmailMessage()
     msg["From"] = from_addr
     msg["To"] = to_address
     msg["Subject"] = subject
     msg.set_content("Per visualizzare questo messaggio, è necessario un client di posta elettronica compatibile con HTML.")
     msg.add_alternative(body_html, subtype='html')
-
     for att_path, att_filename in attachments:
         with open(att_path, 'rb') as f:
             file_data = f.read()
@@ -276,7 +248,6 @@ def send_email_with_attachments(to_address, subject, body_html, attachments):
             elif att_filename.lower().endswith('.png'): ctype = 'image/png'
             maintype, subtype = ctype.split('/', 1)
             msg.add_attachment(file_data, maintype=maintype, subtype=subtype, filename=att_filename)
-
     with smtplib.SMTP(smtp_host, port=smtp_port) as server:
         server.starttls()
         server.login(smtp_user, smtp_pass)
@@ -313,9 +284,7 @@ def index():
     query = Articolo.query
     if session.get('role') == 'client':
         query = query.filter(Articolo.cliente.ilike(session['user']))
-    
     articoli = query.order_by(Articolo.id.desc()).all()
-    
     totali = { 'colli': 0, 'peso': 0.0, 'm2': 0.0, 'm3': 0.0 }
     articoli_in_giacenza = [art for art in articoli if not art.n_ddt_uscita]
     for art in articoli_in_giacenza:
@@ -323,7 +292,6 @@ def index():
         totali['peso'] += art.peso or 0.0
         totali['m2'] += art.m2 or 0.0
         totali['m3'] += art.m3 or 0.0
-
     return render_template('index.html', articoli=articoli, totali=totali)
 
 def populate_articolo_from_form(articolo, form):
@@ -474,20 +442,16 @@ def buono_setup():
     if session.get('role') != 'admin': abort(403)
     ids_str = request.args.get('ids', '')
     if not ids_str: return redirect(url_for('index'))
-    
     ids = [int(i) for i in ids_str.split(',')]
     articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
     primo_articolo = articoli[0] if articoli else None
-
     if request.method == 'POST':
         buono_n = request.form.get('buono_n')
         if not buono_n:
             flash("Il numero del buono è obbligatorio.", "danger")
             return render_template('buono_setup.html', articoli=articoli, ids=ids_str, primo_articolo=primo_articolo)
-        
         for art in articoli: art.buono_n = buono_n
         db.session.commit()
-        
         dati_buono = {
             'numero_buono': buono_n,
             'cliente': request.form.get('cliente'),
@@ -496,34 +460,53 @@ def buono_setup():
             'fornitore': primo_articolo.fornitore if primo_articolo else '',
             'data_emissione': date.today().strftime('%d/%m/%Y'),
         }
-
         buffer = io.BytesIO()
         generate_buono_prelievo_pdf(buffer, dati_buono, articoli)
         buffer.seek(0)
-        
         flash(f"Buono N. {buono_n} assegnato e PDF generato.", "success")
         return send_file(buffer, as_attachment=True, download_name=f'Buono_{buono_n}.pdf', mimetype='application/pdf')
-
     return render_template('buono_setup.html', articoli=articoli, ids=ids_str, primo_articolo=primo_articolo)
+
+@app.route('/buono/preview', methods=['POST'])
+def buono_preview():
+    if session.get('role') != 'admin': abort(403)
+    ids_str = request.args.get('ids', '')
+    if not ids_str:
+        return "Errore: Articoli non specificati.", 400
+    ids = [int(i) for i in ids_str.split(',')]
+    articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
+    primo_articolo = articoli[0] if articoli else None
+    dati_buono = {
+        'numero_buono': request.form.get('buono_n', '(ANTEPRIMA)'),
+        'cliente': request.form.get('cliente'),
+        'commessa': request.form.get('commessa'),
+        'protocollo': request.form.get('protocollo'),
+        'fornitore': primo_articolo.fornitore if primo_articolo else '',
+        'data_emissione': date.today().strftime('%d/%m/%Y'),
+    }
+    buffer = io.BytesIO()
+    generate_buono_prelievo_pdf(buffer, dati_buono, articoli)
+    buffer.seek(0)
+    return send_file(
+        buffer, as_attachment=True, 
+        download_name='Anteprima_Buono_Prelievo.pdf', 
+        mimetype='application/pdf'
+    )
 
 @app.route('/ddt/setup', methods=['GET', 'POST'])
 def ddt_setup():
     if session.get('role') != 'admin': abort(403)
     ids_str = request.args.get('ids', '')
     if not ids_str: return redirect(url_for('index'))
-    
     ids = [int(i) for i in ids_str.split(',')]
     articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
-    
     articoli_gia_usciti = [art.id for art in articoli if art.n_ddt_uscita]
     if articoli_gia_usciti:
-        flash(f"Attenzione: Gli articoli ID {articoli_gia_usciti} risultano già spediti e non verranno inclusi.", "warning")
+        flash(f"Attenzione: Gli articoli ID {articoli_gia_usciti} risultano già spediti.", "warning")
         articoli = [art for art in articoli if not art.n_ddt_uscita]
-        ids = [art.id for art in articoli]
-        ids_str = ','.join(map(str, ids))
+        ids_str = ','.join(map(str, [art.id for art in articoli]))
         if not articoli:
             return redirect(url_for('index'))
-
     dest_path = CONFIG_FOLDER / 'destinatari_saved.json'
     destinatari = {}
     if dest_path.exists():
@@ -532,48 +515,45 @@ def ddt_setup():
                 data = json.load(f)
                 if isinstance(data, dict):
                     destinatari = data
-        except json.JSONDecodeError:
-            pass # File is empty or malformed, keep destinatari as empty dict
-
+        except (json.JSONDecodeError, IOError):
+            pass
     if request.method == 'POST':
         n_ddt = request.form.get('n_ddt')
         if not n_ddt:
-            flash("Il numero del DDT è un campo obbligatorio.", "danger")
+            flash("Il numero del DDT è obbligatorio.", "danger")
             return render_template('ddt_setup.html', articoli=articoli, ids=ids_str, destinatari=destinatari, today=date.today().isoformat())
-
         data_uscita = parse_date_safe(request.form.get('data_uscita')) or date.today()
-        
         for art in articoli:
             art.n_ddt_uscita = n_ddt
             art.data_uscita = data_uscita
             art.stato = 'Uscito'
         db.session.commit()
-        
         buffer = io.BytesIO()
         ddt_data = request.form.to_dict()
         ddt_data['n_ddt'] = n_ddt
-        
         destinatario_scelto = destinatari.get(request.form.get('destinatario_key'), {})
-        
         generate_ddt_pdf(buffer, ddt_data, articoli, destinatario_scelto)
         buffer.seek(0)
-        
         flash(f"Articoli scaricati con DDT N. {n_ddt}", "success")
         return send_file(buffer, as_attachment=True, download_name=f'DDT_{n_ddt.replace("/", "-")}.pdf', mimetype='application/pdf')
-
     return render_template('ddt_setup.html', articoli=articoli, ids=ids_str, destinatari=destinatari, today=date.today().isoformat())
-
 
 @app.route('/etichetta', methods=['GET', 'POST'])
 def etichetta_manuale():
     if session.get('role') != 'admin': abort(403)
     if request.method == 'POST':
-        data = request.form.to_dict(); buffer = io.BytesIO()
+        data = request.form.to_dict()
+        buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=(100*mm, 62*mm), margins=(5*mm, 5*mm, 5*mm, 5*mm))
-        story = []; styles = getSampleStyleSheet()
+        styles = getSampleStyleSheet()
+        testo_etichetta = []
         for key, value in data.items():
-            if value: story.append(Paragraph(f"<b>{key.replace('_', ' ').title()}:</b> {value}", styles['Normal']))
-        doc.build(story); buffer.seek(0)
+            if value:
+                testo_etichetta.append(f"<b>{key.replace('_', ' ').title()}:</b> {value}")
+        full_text = "<br/>".join(testo_etichetta)
+        story = [Paragraph(full_text, styles['Normal'])]
+        doc.build(story)
+        buffer.seek(0)
         return send_file(buffer, as_attachment=True, download_name='etichetta.pdf', mimetype='application/pdf')
     return render_template('etichetta_manuale.html')
 
@@ -598,10 +578,8 @@ def edit_multiple():
     if not ids_str:
         flash("Nessun articolo selezionato per la modifica.", "warning")
         return redirect(url_for('index'))
-    
     ids = [int(i) for i in ids_str.split(',')]
     articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
-
     if request.method == 'POST':
         for art in articoli:
             for field, value in request.form.items():
@@ -610,17 +588,20 @@ def edit_multiple():
         db.session.commit()
         flash(f"{len(articoli)} articoli aggiornati.", "success")
         return redirect(url_for('index'))
-
     return render_template('edit_multiple.html', articoli=articoli, ids=ids_str)
 
 @app.route('/destinatari', methods=['GET', 'POST'])
 def gestione_destinatari():
     if session.get('role') != 'admin': abort(403)
     dest_path = CONFIG_FOLDER / 'destinatari_saved.json'
+    destinatari = {}
     try:
-        with open(dest_path, 'r', encoding='utf-8') as f: destinatari = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError): destinatari = {}
-
+        with open(dest_path, 'r', encoding='utf-8') as f: 
+            data = json.load(f)
+            if isinstance(data, dict):
+                destinatari = data
+    except (FileNotFoundError, json.JSONDecodeError):
+        pass
     if request.method == 'POST':
         if 'delete_key' in request.form:
             key_to_delete = request.form['delete_key']
@@ -637,12 +618,10 @@ def gestione_destinatari():
                 flash(f'Destinatario "{nickname.upper()}" aggiunto/aggiornato.', 'success')
             else:
                 flash('Nickname, Ragione Sociale e Indirizzo sono obbligatori.', 'warning')
-        
         with open(dest_path, 'w', encoding='utf-8') as f: json.dump(destinatari, f, indent=4, ensure_ascii=False)
         return redirect(url_for('gestione_destinatari'))
-
     return render_template('destinatari.html', destinatari=destinatari)
-    
+
 @app.route('/api/attachments')
 def get_attachments():
     ids_str = request.args.get('ids', '')
@@ -655,35 +634,27 @@ def get_attachments():
 @app.route('/email/invia', methods=['POST'])
 def invia_email():
     if session.get('role') != 'admin': abort(403)
-    
     to_addr = request.form.get('email_destinatario')
     subject = request.form.get('email_oggetto')
     allegati_ids = request.form.getlist('allegati_selezionati')
-
     if not to_addr or not subject or not allegati_ids:
         flash("Compila tutti i campi per inviare l'email.", "warning")
         return redirect(request.referrer or url_for('index'))
-
     allegati_da_inviare = Allegato.query.filter(Allegato.id.in_(allegati_ids)).all()
     allegati_paths = [(UPLOAD_FOLDER / a.filename, a.filename) for a in allegati_da_inviare]
-
     firma_html = """<p>Cordiali Saluti,<br><b>Camar Srl</b></p>"""
     body_html = f"<html><body><p>Buongiorno,</p><p>In allegato i file richiesti.</p><br>{firma_html}</body></html>"
-
     try:
         send_email_with_attachments(to_addr, subject, body_html, allegati_paths)
         flash(f"Email inviata con successo a {to_addr}", "success")
     except Exception as e:
         logging.error(f"Errore invio email: {e}", exc_info=True)
         flash(f"Errore durante l'invio dell'email: {e}", "danger")
-
     return redirect(request.referrer or url_for('index'))
 
 # --- 7. SETUP E AVVIO APPLICAZIONE ---
 def initialize_app():
-    """Esegue il backup, la configurazione del database e la copia dei file di configurazione."""
     db_path = DATA_DIR / "magazzino_web.db"
-    
     if db_path.exists():
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_path = BACKUP_FOLDER / f"magazzino_backup_{timestamp}.db"
@@ -692,7 +663,6 @@ def initialize_app():
             logging.info(f"Backup del database creato con successo: {backup_path}")
         except Exception as e:
             logging.error(f"Errore durante la creazione del backup: {e}")
-
     source_dir = Path(__file__).resolve().parent
     for filename in ['mappe_excel.json', 'progressivi_ddt.json', 'destinatari_saved.json']:
         source_path = source_dir / filename
@@ -703,7 +673,6 @@ def initialize_app():
                 logging.info(f"Copiato file di configurazione '{filename}' in {CONFIG_FOLDER}")
             except Exception as e:
                 logging.error(f"Impossibile copiare '{filename}': {e}")
-
     with app.app_context():
         db.create_all()
         logging.info("Database verificato/creato.")
