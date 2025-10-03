@@ -2,32 +2,30 @@
 {% block content %}
 <div class="card p-4">
     <h3>Crea Documento di Trasporto (DDT)</h3>
-    <p class="text-muted">Conferma i dati per gli {{ articoli|length }} articoli selezionati.</p>
+    <p class="text-muted">Conferma i dati per gli articoli selezionati.</p>
     <hr>
     <form method="POST">
         <div class="row g-3 mb-4">
             <div class="col-md-6">
-                <label for="destinatario_key" class="form-label">Destinatario (*)</label>
-                <select name="destinatario_key" id="destinatario_key" class="form-select" required>
-                    <option value="" disabled selected>-- Seleziona --</option>
-                    {% for key, dest in destinatari.items() %}
-                        <option value="{{ key }}">{{ key }}</option>
-                    {% endfor %}
-                </select>
+                <label for="n_ddt" class="form-label">Numero DDT (*)</label>
+                <input type="text" name="n_ddt" id="n_ddt" class="form-control" required>
             </div>
             <div class="col-md-6">
                 <label for="data_uscita" class="form-label">Data Uscita (*)</label>
                 <input type="date" name="data_uscita" id="data_uscita" class="form-control" value="{{ today }}" required>
             </div>
             <div class="col-md-6">
-                <label for="n_ddt" class="form-label">Numero DDT (*)</label>
-                <input type="text" name="n_ddt" id="n_ddt" class="form-control" required>
+                <label for="destinatario_key" class="form-label">Destinatario (*)</label>
+                <select name="destinatario_key" id="destinatario_key" class="form-select" required>
+                    <option value="" disabled selected>-- Seleziona --</option>
+                    {% for key, dest in destinatari.items() %}
+                        <option value="{{ key }}">{{ key }} - {{ dest.ragione_sociale }}</option>
+                    {% endfor %}
+                </select>
             </div>
         </div>
-
-        <h5>Articoli Inclusi</h5>
         <div class="mt-4">
-            <button type="submit" class="btn btn-primary">Genera DDT e Scarica</button>
+            <button type="submit" formaction="{{ url_for('ddt_setup', ids=request.args.get('ids')) }}" class="btn btn-primary">Genera DDT e Scarica</button>
             <button type="submit" formaction="{{ url_for('ddt_preview', ids=request.args.get('ids')) }}" formtarget="_blank" class="btn btn-info">Anteprima DDT</button>
             <a href="{{ url_for('index') }}" class="btn btn-secondary">Annulla</a>
         </div>
