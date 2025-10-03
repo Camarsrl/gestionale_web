@@ -1,18 +1,18 @@
 {% extends "layout.html" %}
 {% block content %}
 <div class="card p-4 mx-auto" style="max-width: 600px;">
-    <h3>Crea Etichetta Manuale</h3>
+    <h3>Crea Etichetta</h3>
     <hr>
     <form method="POST">
         <div class="row g-3">
-            <div class="col-12"><input type="text" name="riga_1" class="form-control" placeholder="Riga 1..."></div>
-            <div class="col-12"><input type="text" name="riga_2" class="form-control" placeholder="Riga 2..."></div>
-            <div class="col-12"><input type="text" name="riga_3" class="form-control" placeholder="Riga 3..."></div>
-            <div class="col-12"><input type="text" name="riga_4" class="form-control" placeholder="Riga 4..."></div>
+            <div class="col-12"><input type="text" name="cliente" class="form-control" placeholder="Cliente..." value="{{ articolo.cliente if articolo else '' }}"></div>
+            <div class="col-12"><input type="text" name="descrizione" class="form-control" placeholder="Descrizione..." value="{{ articolo.descrizione if articolo else '' }}"></div>
+            <div class="col-12"><input type="text" name="commessa" class="form-control" placeholder="Commessa..." value="{{ articolo.commessa if articolo else '' }}"></div>
+            <div class="col-12"><input type="text" name="id_articolo" class="form-control" placeholder="ID Articolo..." value="{{ articolo.id if articolo else '' }}"></div>
         </div>
         <div class="mt-4">
             <button type="submit" class="btn btn-primary" formaction="{{ url_for('etichetta_manuale') }}">Genera e Scarica</button>
-            <button type="submit" class="btn btn-info" formaction="{{ url_for('etichetta_preview') }}" formtarget="_blank">Anteprima Etichetta</button>
+            <button type="submit" class="btn btn-info" formaction="{{ url_for('etichetta_preview') }}" formtarget="_blank">Anteprima</button>
             <a href="{{ url_for('index') }}" class="btn btn-secondary">Annulla</a>
         </div>
     </form>
