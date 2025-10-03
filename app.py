@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+
 # --- 1. IMPORT LIBRERIE ---
 import os
 import shutil
@@ -284,7 +285,23 @@ def index():
     query = Articolo.query
     if session.get('role') == 'client':
         query = query.filter(Articolo.cliente.ilike(session['user']))
+    
+    # Logica dei filtri
+    filters = request.args.to_dict()
+    if filters:
+        if filters.get('id'):
+            query = query.filter(Articolo.id == filters['id'])
+        if filters.get('codice_articolo'):
+            query = query.filter(Articolo.codice_articolo.ilike(f"%{filters['codice_articolo']}%"))
+        if filters.get('descrizione'):
+            query = query.filter(Articolo.descrizione.ilike(f"%{filters['descrizione']}%"))
+        if filters.get('cliente'):
+            query = query.filter(Articolo.cliente.ilike(f"%{filters['cliente']}%"))
+        if filters.get('commessa'):
+            query = query.filter(Articolo.commessa.ilike(f"%{filters['commessa']}%"))
+
     articoli = query.order_by(Articolo.id.desc()).all()
+    
     totali = { 'colli': 0, 'peso': 0.0, 'm2': 0.0, 'm3': 0.0 }
     articoli_in_giacenza = [art for art in articoli if not art.n_ddt_uscita]
     for art in articoli_in_giacenza:
@@ -292,7 +309,8 @@ def index():
         totali['peso'] += art.peso or 0.0
         totali['m2'] += art.m2 or 0.0
         totali['m3'] += art.m3 or 0.0
-    return render_template('index.html', articoli=articoli, totali=totali)
+
+    return render_template('index.html', articoli=articoli, totali=totali, filters=filters)
 
 def populate_articolo_from_form(articolo, form):
     articolo.codice_articolo = form.get('codice_articolo')
@@ -463,7 +481,7 @@ def buono_setup():
         buffer = io.BytesIO()
         generate_buono_prelievo_pdf(buffer, dati_buono, articoli)
         buffer.seek(0)
-        flash(f"Buono N. {buono_n} assegnato e PDF generato.", "success")
+        flash(f"Buono N. {buono_n} assegnato. I dati sono stati salvati.", "success")
         return send_file(buffer, as_attachment=True, download_name=f'Buono_{buono_n}.pdf', mimetype='application/pdf')
     return render_template('buono_setup.html', articoli=articoli, ids=ids_str, primo_articolo=primo_articolo)
 
@@ -488,7 +506,8 @@ def buono_preview():
     generate_buono_prelievo_pdf(buffer, dati_buono, articoli)
     buffer.seek(0)
     return send_file(
-        buffer, as_attachment=True, 
+        buffer, 
+        as_attachment=False, 
         download_name='Anteprima_Buono_Prelievo.pdf', 
         mimetype='application/pdf'
     )
@@ -534,9 +553,42 @@ def ddt_setup():
         destinatario_scelto = destinatari.get(request.form.get('destinatario_key'), {})
         generate_ddt_pdf(buffer, ddt_data, articoli, destinatario_scelto)
         buffer.seek(0)
-        flash(f"Articoli scaricati con DDT N. {n_ddt}", "success")
+        flash(f"Articoli scaricati con DDT N. {n_ddt}. I dati sono stati salvati.", "success")
         return send_file(buffer, as_attachment=True, download_name=f'DDT_{n_ddt.replace("/", "-")}.pdf', mimetype='application/pdf')
     return render_template('ddt_setup.html', articoli=articoli, ids=ids_str, destinatari=destinatari, today=date.today().isoformat())
+
+@app.route('/ddt/preview', methods=['POST'])
+def ddt_preview():
+    if session.get('role') != 'admin': abort(403)
+    ids_str = request.args.get('ids', '')
+    if not ids_str: return "Errore: Articoli non specificati.", 400
+    
+    ids = [int(i) for i in ids_str.split(',')]
+    articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
+    
+    dest_path = CONFIG_FOLDER / 'destinatari_saved.json'
+    destinatari = {}
+    if dest_path.exists():
+        try:
+            with open(dest_path, 'r', encoding='utf-8') as f: 
+                data = json.load(f)
+                if isinstance(data, dict): destinatari = data
+        except (json.JSONDecodeError, IOError): pass
+
+    buffer = io.BytesIO()
+    ddt_data = request.form.to_dict()
+    ddt_data['n_ddt'] = request.form.get('n_ddt', '(ANTEPRIMA)')
+    destinatario_scelto = destinatari.get(request.form.get('destinatario_key'), {})
+    
+    generate_ddt_pdf(buffer, ddt_data, articoli, destinatario_scelto)
+    buffer.seek(0)
+
+    return send_file(
+        buffer,
+        as_attachment=False,
+        download_name='ANTEPRIMA_DDT.pdf',
+        mimetype='application/pdf'
+    )
 
 @app.route('/etichetta', methods=['GET', 'POST'])
 def etichetta_manuale():
@@ -556,6 +608,28 @@ def etichetta_manuale():
         buffer.seek(0)
         return send_file(buffer, as_attachment=True, download_name='etichetta.pdf', mimetype='application/pdf')
     return render_template('etichetta_manuale.html')
+
+@app.route('/etichetta/preview', methods=['POST'])
+def etichetta_preview():
+    if session.get('role') != 'admin': abort(403)
+    data = request.form.to_dict()
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=(100*mm, 62*mm), margins=(5*mm, 5*mm, 5*mm, 5*mm))
+    styles = getSampleStyleSheet()
+    testo_etichetta = []
+    for key, value in data.items():
+        if value:
+            testo_etichetta.append(f"<b>{key.replace('_', ' ').title()}:</b> {value}")
+    full_text = "<br/>".join(testo_etichetta)
+    story = [Paragraph(full_text, styles['Normal'])]
+    doc.build(story)
+    buffer.seek(0)
+    return send_file(
+        buffer,
+        as_attachment=False,
+        download_name='Anteprima_Etichetta.pdf',
+        mimetype='application/pdf'
+    )
 
 @app.route('/articoli/delete_bulk', methods=['POST'])
 def bulk_delete():
@@ -621,7 +695,7 @@ def gestione_destinatari():
         with open(dest_path, 'w', encoding='utf-8') as f: json.dump(destinatari, f, indent=4, ensure_ascii=False)
         return redirect(url_for('gestione_destinatari'))
     return render_template('destinatari.html', destinatari=destinatari)
-
+    
 @app.route('/api/attachments')
 def get_attachments():
     ids_str = request.args.get('ids', '')
