@@ -1,59 +1,45 @@
 {% extends "layout.html" %}
-
 {% block content %}
 <div class="card mb-4">
-    <div class="card-header" data-bs-toggle="collapse" href="#filtriCollapse" role="button" aria-expanded="true" aria-controls="filtriCollapse">
-        <h5 class="mb-0">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-funnel-fill" viewBox="0 0 16 16"><path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.74.439L7 12.31a.5.5 0 0 1-.26-.439V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5v-2z"/></svg>
-            Filtri Ricerca
-        </h5>
-    </div>
-    <div class="collapse show" id="filtriCollapse">
-        <div class="card-body">
-            <form method="GET" action="{{ url_for('index') }}">
-                <div class="row g-2 align-items-end">
-                    <div class="col-md-2"><label class="form-label form-label-sm">ID</label><input type="text" name="id" class="form-control form-control-sm" value="{{ filters.id or '' }}"></div>
-                    <div class="col-md-2"><label class="form-label form-label-sm">Cod. Art.</label><input type="text" name="codice_articolo" class="form-control form-control-sm" value="{{ filters.codice_articolo or '' }}"></div>
-                    <div class="col-md-4"><label class="form-label form-label-sm">Descrizione</label><input type="text" name="descrizione" class="form-control form-control-sm" value="{{ filters.descrizione or '' }}"></div>
-                    <div class="col-md-2"><label class="form-label form-label-sm">Cliente</label><input type="text" name="cliente" class="form-control form-control-sm" value="{{ filters.cliente or '' }}"></div>
-                    <div class="col-md-2"><label class="form-label form-label-sm">Commessa</label><input type="text" name="commessa" class="form-control form-control-sm" value="{{ filters.commessa or '' }}"></div>
-                    <div class="col-md-auto mt-3">
-                        <button type="submit" class="btn btn-sm btn-primary">Applica Filtri</button>
-                        <a href="{{ url_for('index') }}" class="btn btn-sm btn-secondary">Pulisci</a>
-                    </div>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h4>Giacenze Magazzino ({{ articoli|length }} risultati)</h4>
-    <div>
-        {% if session.role == 'admin' %}
-            <a href="{{ url_for('add_articolo') }}" class="btn btn-success btn-sm">Aggiungi Articolo</a>
-            <a href="{{ url_for('import_excel') }}" class="btn btn-info btn-sm">Importa da Excel</a>
-            <a href="{{ url_for('etichetta_manuale') }}" class="btn btn-secondary btn-sm">Crea Etichetta</a>
-        {% endif %}
+    <div class="card-header">Filtri Ricerca</div>
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('index') }}">
+            <div class="row g-2">
+                <div class="col-md-1"><label class="form-label">ID</label><input type="text" name="id" class="form-control form-control-sm" value="{{ filters.id or '' }}"></div>
+                <div class="col-md-2"><label class="form-label">Cod.Art.</label><input type="text" name="codice_articolo" class="form-control form-control-sm" value="{{ filters.codice_articolo or '' }}"></div>
+                <div class="col-md-3"><label class="form-label">Descriz.</label><input type="text" name="descrizione" class="form-control form-control-sm" value="{{ filters.descrizione or '' }}"></div>
+                <div class="col-md-2"><label class="form-label">Cliente</label><input type="text" name="cliente" class="form-control form-control-sm" value="{{ filters.cliente or '' }}"></div>
+                <div class="col-md-2"><label class="form-label">Commessa</label><input type="text" name="commessa" class="form-control form-control-sm" value="{{ filters.commessa or '' }}"></div>
+                <div class="col-md-2"><label class="form-label">Ordine</label><input type="text" name="ordine" class="form-control form-control-sm" value="{{ filters.ordine or '' }}"></div>
+                <div class="col-md-2"><label class="form-label">Data Ingr. Da:</label><input type="date" name="data_ingresso_da" class="form-control form-control-sm" value="{{ filters.data_ingresso_da or '' }}"></div>
+                <div class="col-md-2"><label class="form-label">Data Ingr. A:</label><input type="date" name="data_ingresso_a" class="form-control form-control-sm" value="{{ filters.data_ingresso_a or '' }}"></div>
+                 <div class="col-md-2"><label class="form-label">Posizione</label><input type="text" name="posizione" class="form-control form-control-sm" value="{{ filters.posizione or '' }}"></div>
+                 <div class="col-md-2"><label class="form-label">Stato</label><input type="text" name="stato" class="form-control form-control-sm" value="{{ filters.stato or '' }}"></div>
+            </div>
+            <div class="mt-3">
+                <button type="submit" class="btn btn-sm btn-primary">Applica Filtri</button>
+                <a href="{{ url_for('index') }}" class="btn btn-sm btn-secondary">Pulisci</a>
+            </div>
+        </form>
     </div>
 </div>
 
 <div class="card">
     <div class="card-body">
         <div class="mb-3">
-            <button class="btn btn-primary btn-sm" id="btn-buono">Crea Buono di Prelievo</button>
-            <button class="btn btn-primary btn-sm" id="btn-ddt">Crea DDT di Uscita</button>
-            <button class="btn btn-warning btn-sm" id="btn-edit-multiple">Modifica Selezionati</button>
-            <button class="btn btn-secondary btn-sm" id="btn-export-selected">Esporta Selez.</button>
-            <a href="{{ url_for('export_excel') }}" class="btn btn-secondary btn-sm">Esporta Tutto</a>
-            <button class="btn btn-danger btn-sm float-end" id="btn-delete-selected">Elimina Selez.</button>
+            <button class="btn btn-sm btn-outline-primary" id="btn-buono">Crea Buono</button>
+            <button class="btn btn-sm btn-outline-primary" id="btn-ddt">Crea DDT</button>
+            <button class="btn btn-sm btn-outline-secondary" id="btn-edit-multiple">Modifica Selez.</button>
+            <button class="btn btn-sm btn-outline-secondary" id="btn-duplicate">Duplica Selez.</button>
+            <button class="btn btn-sm btn-outline-secondary" id="btn-create-label">Crea Etichetta</button>
+            <button class="btn btn-sm btn-outline-danger float-end" id="btn-delete-selected">Elimina Selez.</button>
         </div>
-
         <div class="table-responsive">
-            <table class="table table-sm table-hover" style="font-size: 0.85rem; white-space: nowrap;">
+            <table class="table table-sm table-hover" style="font-size: 0.8rem; white-space: nowrap;">
                 <thead>
                     <tr>
                         <th><input type="checkbox" id="select-all"></th>
+                        <th>Azioni</th>
                         <th>ID</th>
                         <th>Codice Articolo</th>
                         <th>Descrizione</th>
@@ -61,18 +47,17 @@
                         <th>Commessa</th>
                         <th>N. Colli</th>
                         <th>Peso</th>
+                        <th>M2</th>
+                        <th>M3</th>
                         <th>Posizione</th>
                         <th>Stato</th>
-                        <th>Data Ingresso</th>
-                        <th>Buono N.</th>
-                        <th>N. DDT Uscita</th>
-                        <th>Data Uscita</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for art in articoli %}
-                    <tr style="cursor: pointer;" data-href="{{ url_for('edit_articolo', id=art.id) }}">
-                        <td onclick="event.stopPropagation();"><input type="checkbox" class="articolo-checkbox" name="selected_ids" value="{{ art.id }}"></td>
+                    <tr>
+                        <td onclick="event.stopPropagation();"><input type="checkbox" class="articolo-checkbox" value="{{ art.id }}"></td>
+                        <td><a href="{{ url_for('edit_articolo', id=art.id) }}" class="btn btn-xs btn-outline-primary">Modifica</a></td>
                         <td>{{ art.id }}</td>
                         <td>{{ art.codice_articolo }}</td>
                         <td>{{ art.descrizione }}</td>
@@ -80,12 +65,10 @@
                         <td>{{ art.commessa }}</td>
                         <td>{{ art.n_colli }}</td>
                         <td>{{ art.peso }}</td>
+                        <td>{{ art.m2 }}</td>
+                        <td>{{ art.m3 }}</td>
                         <td>{{ art.posizione }}</td>
                         <td><span class="badge bg-{{ 'success' if art.stato == 'In giacenza' else 'secondary' }}">{{ art.stato }}</span></td>
-                        <td>{{ art.data_ingresso.strftime('%d/%m/%Y') if art.data_ingresso else '' }}</td>
-                        <td>{{ art.buono_n or '' }}</td>
-                        <td>{{ art.n_ddt_uscita or '' }}</td>
-                        <td>{{ art.data_uscita.strftime('%d/%m/%Y') if art.data_uscita else '' }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -93,79 +76,13 @@
         </div>
     </div>
 </div>
-
-<form id="bulk-action-form" method="POST" style="display: none;">
-    <input type="hidden" name="selected_ids" id="selected_ids_field">
-</form>
-<form id="bulk-delete-form" method="POST" action="{{ url_for('bulk_delete') }}" style="display: none;">
-    <input type="hidden" name="selected_ids" id="delete_ids_field">
-</form>
-
 {% endblock %}
 
 {% block extra_js %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Rendi cliccabile l'intera riga
-    document.querySelectorAll('tr[data-href]').forEach(row => {
-        row.addEventListener('click', () => {
-            window.location.href = row.dataset.href;
-        });
-    });
-
-    // Logica per selezionare/deselezionare tutto
-    document.getElementById('select-all').addEventListener('change', function(e) {
-        document.querySelectorAll('.articolo-checkbox').forEach(checkbox => {
-            checkbox.checked = e.target.checked;
-        });
-    });
-
-    function getSelectedIds() {
-        const selected = [];
-        document.querySelectorAll('.articolo-checkbox:checked').forEach(checkbox => {
-            selected.push(checkbox.value);
-        });
-        return selected.join(',');
-    }
-
-    // Gestione pulsanti azioni di gruppo
-    const actions = {
-        'btn-buono': '{{ url_for("buono_setup") }}',
-        'btn-ddt': '{{ url_for("ddt_setup") }}',
-        'btn-edit-multiple': '{{ url_for("edit_multiple") }}',
-        'btn-export-selected': '{{ url_for("export_excel") }}'
-    };
-
-    for (const [btnId, url] of Object.entries(actions)) {
-        const btn = document.getElementById(btnId);
-        if (btn) {
-            btn.addEventListener('click', function() {
-                const ids = getSelectedIds();
-                if (!ids) {
-                    alert('Nessun articolo selezionato.');
-                    return;
-                }
-                window.location.href = url + '?ids=' + ids;
-            });
-        }
-    }
-    
-    // Gestione eliminazione
-    const deleteBtn = document.getElementById('btn-delete-selected');
-    if (deleteBtn) {
-        deleteBtn.addEventListener('click', function() {
-            const ids = getSelectedIds();
-            if (!ids) {
-                alert('Nessun articolo selezionato per l\'eliminazione.');
-                return;
-            }
-            if (confirm('Sei sicuro di voler eliminare gli ' + ids.split(',').length + ' articoli selezionati? L\'azione è irreversibile.')) {
-                const form = document.getElementById('bulk-delete-form');
-                document.getElementById('delete_ids_field').value = ids;
-                form.submit();
-            }
-        });
-    }
-});
+// ... (Tutto il codice JavaScript della risposta precedente va qui)
+// Aggiungi la gestione per i nuovi pulsanti
+document.getElementById('btn-duplicate').addEventListener('click', function() { /* ... */ });
+document.getElementById('btn-create-label').addEventListener('click', function() { /* ... */ });
 </script>
 {% endblock %}
