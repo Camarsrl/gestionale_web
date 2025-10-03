@@ -1,10 +1,32 @@
 {% extends "layout.html" %}
 {% block content %}
 <div class="card p-4">
-    <h3>Modifica Multipla Articoli</h3>
-    <p class="text-muted">Applica una modifica a tutti gli {{ articoli|length }} articoli selezionati.</p>
+    <h3>Modifica Multipla per {{ articoli|length }} Articoli</h3>
+    <p class="text-muted">Spunta la casella accanto al campo che vuoi aggiornare per tutti gli articoli selezionati.</p>
     <hr>
     <form method="post">
+        <div class="row g-3 align-items-center">
+            <div class="col-auto">
+                <input type="checkbox" class="form-check-input" name="update_posizione">
+            </div>
+            <div class="col-auto">
+                <label for="posizione" class="col-form-label">Posizione</label>
+            </div>
+            <div class="col-auto">
+                <input type="text" class="form-control" name="posizione">
+            </div>
+        </div>
+        <div class="row g-3 align-items-center mt-2">
+            <div class="col-auto">
+                <input type="checkbox" class="form-check-input" name="update_stato">
+            </div>
+            <div class="col-auto">
+                <label for="stato" class="col-form-label">Stato</label>
+            </div>
+            <div class="col-auto">
+                <input type="text" class="form-control" name="stato">
+            </div>
+        </div>
         <div class="mt-4">
             <button type="submit" class="btn btn-primary">Applica Modifiche</button>
             <a href="{{ url_for('index') }}" class="btn btn-secondary">Annulla</a>
@@ -12,4 +34,3 @@
     </form>
 </div>
 {% endblock %}
-
