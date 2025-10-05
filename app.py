@@ -9,8 +9,6 @@ from datetime import datetime, date
 from pathlib import Path
 import io
 from copy import deepcopy
-
-# --- LIBRERIE DI TERZE PARTI ---
 from flask import (Flask, request, redirect, url_for, render_template,
                    flash, send_from_directory, abort, session, jsonify, send_file)
 from flask_sqlalchemy import SQLAlchemy
