@@ -227,7 +227,7 @@ def send_email_with_attachments(to_address, subject, body_html, attachments):
     smtp_pass = os.environ.get("SMTP_PASS")
     from_addr = os.environ.get("FROM_EMAIL", smtp_user)
     if not all([smtp_host, smtp_port, smtp_user, smtp_pass, from_addr]):
-        raise ValueError("Configurazione SMTP incompleta. Imposta le variabili d'ambiente.")
+        raise ValueError("Configurazione SMTP incompleta.")
     msg = EmailMessage()
     msg["From"] = from_addr
     msg["To"] = to_address
@@ -276,15 +276,10 @@ def logout():
 
 @app.route('/')
 def main_menu():
-    if 'user' not in session:
-        return redirect(url_for('login'))
     return render_template('main_menu.html')
 
 @app.route('/giacenze')
 def visualizza_giacenze():
-    if 'user' not in session:
-        return redirect(url_for('login'))
-        
     query = Articolo.query
     if session.get('role') == 'client':
         query = query.filter(Articolo.cliente.ilike(session['user']))
@@ -332,7 +327,6 @@ def populate_articolo_from_form(articolo, form):
     
     if any(k in form for k in ['lunghezza', 'larghezza', 'altezza', 'n_colli']):
         articolo.m2, articolo.m3 = calculate_m2_m3(form)
-
     return articolo
 
 @app.route('/articolo/nuovo', methods=['GET', 'POST'])
