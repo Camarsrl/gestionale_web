@@ -1,28 +1,32 @@
 {% extends "layout.html" %}
 {% block content %}
-<div class="card p-4">
-    <h2 class="mb-4">Importa Articoli da Excel</h2>
-
+<div class="card p-4 mx-auto" style="max-width: 600px;">
+    <h3>Importa da File Excel</h3>
+    <hr>
+    {% if profiles %}
     <form method="post" enctype="multipart/form-data">
         <div class="mb-3">
-            <label for="file" class="form-label">Seleziona file Excel (.xlsx, .xls)</label>
-            <input class="form-control" type="file" id="file" name="file" required accept=".xlsx,.xls,.xlsm">
-        </div>
-        
-        <div class="mb-3">
-            <label for="profile" class="form-label">Seleziona Profilo di Mappatura</label>
-            <select class="form-select" id="profile" name="profile" required>
-                {% for profile_name in profiles %}
-                <option value="{{ profile_name }}">{{ profile_name }}</option>
+            <label for="profile" class="form-label">Seleziona Profilo di Importazione</label>
+            <select name="profile" id="profile" class="form-select" required>
+                {% for profile in profiles %}
+                <option value="{{ profile }}">{{ profile }}</option>
                 {% endfor %}
             </select>
         </div>
-        
+        <div class="mb-3">
+            <label for="file" class="form-label">Seleziona File Excel (.xlsx)</label>
+            <input type="file" name="file" id="file" class="form-control" required accept=".xlsx,.xls,.xlsm">
+        </div>
         <div class="mt-4">
-            <button type="submit" class="btn btn-primary">Avvia Importazione</button>
-            <a href="{{ url_for('index') }}" class="btn btn-secondary">Annulla</a>
+            <button type="submit" class="btn btn-primary">Carica e Importa</button>
+            <a href="{{ url_for('main_menu') }}" class="btn btn-secondary">Annulla</a>
         </div>
     </form>
+    {% else %}
+    <div class="alert alert-warning">
+        Nessun profilo di importazione trovato. Assicurati che il file <code>config/mappe_excel.json</code> esista e sia configurato correttamente.
+    </div>
+    <a href="{{ url_for('main_menu') }}" class="btn btn-secondary">Torna al Menu</a>
+    {% endif %}
 </div>
 {% endblock %}
-
