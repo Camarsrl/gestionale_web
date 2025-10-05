@@ -1,0 +1,22 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="card p-4 mx-auto" style="max-width: 600px;">
+    <h3>Esporta Giacenze per Cliente</h3>
+    <hr>
+    <form method="POST">
+        <div class="mb-3">
+            <label for="cliente" class="form-label">Seleziona un Cliente</label>
+            <select name="cliente" id="cliente" class="form-select" required>
+                <option value="" disabled selected>-- Scegli --</option>
+                {% for cliente in clienti %}
+                    <option value="{{ cliente }}">{{ cliente }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="mt-4">
+            <button type="submit" class="btn btn-primary">Esporta Excel</button>
+            <a href="{{ url_for('main_menu') }}" class="btn btn-secondary">Annulla</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
