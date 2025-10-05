@@ -626,17 +626,34 @@ def etichetta_preview():
     if session.get('role') != 'admin': abort(403)
     data = request.form.to_dict()
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=(100*mm, 62*mm), margins=(5*mm, 5*mm, 5*mm, 5*mm))
+    
+    # Stile con font più piccolo
     styles = getSampleStyleSheet()
+    styleN = ParagraphStyle(name='Normal', parent=styles['Normal'], fontSize=9, leading=11)
+
+    doc = SimpleDocTemplate(buffer, pagesize=(100*mm, 62*mm), margins=(5*mm, 5*mm, 5*mm, 5*mm))
+    
     testo_etichetta = []
     for key, value in data.items():
         if value:
             testo_etichetta.append(f"<b>{key.replace('_', ' ').title()}:</b> {value}")
     full_text = "<br/>".join(testo_etichetta)
-    story = [Paragraph(full_text, styles['Normal'])]
-    doc.build(story)
+    story = [Paragraph(full_text, styleN)]
+    
+    try:
+        doc.build(story)
+    except Exception as e:
+        # Se il testo è troppo lungo, ritorna un messaggio di errore invece di crashare
+        logging.error(f"Errore generazione etichetta: {e}")
+        return "Errore: il testo è troppo lungo per entrare nell'etichetta. Riduci la quantità di informazioni.", 400
+
     buffer.seek(0)
-    return send_file(buffer, as_attachment=False, download_name='Anteprima_Etichetta.pdf', mimetype='application/pdf')
+    return send_file(
+        buffer,
+        as_attachment=False,
+        download_name='Anteprima_Etichetta.pdf',
+        mimetype='application/pdf'
+    )
 
 @app.route('/articolo/duplica')
 def duplica_articolo():
