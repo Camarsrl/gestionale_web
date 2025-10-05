@@ -696,20 +696,9 @@ def edit_multiple():
     ids = [int(i) for i in ids_str.split(',')]
     articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
     if request.method == 'POST':
-        campi_da_aggiornare = {}
-        for field, value in request.form.items():
-            if f"update_{field}" in request.form and value:
-                campi_da_aggiornare[field] = value
-
         for art in articoli:
-            for field, value in campi_da_aggiornare.items():
-                if 'data' in field:
-                    setattr(art, field, parse_date_safe(value))
-                elif isinstance(getattr(art, field, None), float):
-                    setattr(art, field, to_float_safe(value))
-                elif isinstance(getattr(art, field, None), int):
-                    setattr(art, field, to_int_safe(value))
-                else:
+            for field, value in request.form.items():
+                if f"update_{field}" in request.form and value:
                     setattr(art, field, value)
         db.session.commit()
         flash(f"{len(articoli)} articoli aggiornati.", "success")
