@@ -25,15 +25,16 @@ from reportlab.lib import colors
 from reportlab.lib.units import cm, mm
 
 # --- 2. CONFIGURAZIONE INIZIALE ---
-# (Questa sezione è rimasta invariata)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 DATA_DIR = Path(os.environ.get('RENDER_DISK_PATH', Path(__file__).resolve().parent))
 UPLOAD_FOLDER = DATA_DIR / 'uploads_web'
 BACKUP_FOLDER = DATA_DIR / 'backup_web'
 CONFIG_FOLDER = DATA_DIR / 'config'
 STATIC_FOLDER = Path(__file__).resolve().parent / 'static'
+
 for folder in [UPLOAD_FOLDER, BACKUP_FOLDER, CONFIG_FOLDER, STATIC_FOLDER]:
     os.makedirs(folder, exist_ok=True)
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-that-is-very-long')
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{DATA_DIR / "magazzino_web.db"}'
@@ -50,7 +51,6 @@ def inject_logo_url():
     return dict(logo_url=None)
 
 # --- 3. GESTIONE UTENTI E RUOLI ---
-# (Questa sezione è rimasta invariata)
 USER_CREDENTIALS = {
     'DE WAVE': 'Struppa01', 'FINCANTIERI': 'Struppa02', 'DE WAVE REFITTING': 'Struppa03',
     'SGDP': 'Struppa04', 'WINGECO': 'Struppa05', 'AMICO': 'Struppa06', 'DUFERCO': 'Struppa07',
@@ -58,7 +58,6 @@ USER_CREDENTIALS = {
     'DIEGO': 'Balleydier03', 'ADMIN': 'admin123'
 }
 ADMIN_USERS = {'OPS', 'CUSTOMS', 'TAZIO', 'DIEGO', 'ADMIN'}
-
 
 # --- 4. MODELLI DEL DATABASE ---
 class Articolo(db.Model):
@@ -99,18 +98,190 @@ class Allegato(db.Model):
     articolo_id = db.Column(db.Integer, db.ForeignKey('articolo.id'), nullable=False)
 
 # --- 5. FUNZIONI HELPER E PDF ---
-# (Tutte le funzioni helper e di generazione PDF sono rimaste invariate)
-# ...
+def to_float_safe(val):
+    if val is None: return None
+    try: return float(str(val).replace(',', '.'))
+    except (ValueError, TypeError): return None
+
+def to_int_safe(val):
+    f_val = to_float_safe(val)
+    return int(f_val) if f_val is not None else None
+
+def parse_date_safe(date_string):
+    if not date_string: return None
+    for fmt in ('%Y-%m-%d', '%d/%m/%Y'):
+        try: return datetime.strptime(str(date_string), fmt).date()
+        except (ValueError, TypeError): continue
+    return None
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def calculate_m2_m3(form_data):
+    l = to_float_safe(form_data.get('lunghezza', 0)) or 0
+    w = to_float_safe(form_data.get('larghezza', 0)) or 0
+    h = to_float_safe(form_data.get('altezza', 0)) or 0
+    c = to_int_safe(form_data.get('n_colli', 1)) or 1
+    m2 = round(l * w * c, 3)
+    m3 = round(l * w * h * c, 3)
+    return m2, m3
+
+def generate_buono_prelievo_pdf(buffer, dati_buono, articoli):
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1.5*cm, bottomMargin=2*cm, leftMargin=2*cm, rightMargin=2*cm)
+    story = []
+    styles = getSampleStyleSheet()
+    logo_path = STATIC_FOLDER / 'logo camar.jpg'
+    if logo_path.exists():
+        img = RLImage(logo_path, width=7*cm, height=3.5*cm, hAlign='CENTER')
+        story.append(img)
+        story.append(Spacer(1, 1*cm))
+    style_title = ParagraphStyle(name='Title', parent=styles['h1'], alignment=TA_CENTER, spaceAfter=6)
+    style_subtitle = ParagraphStyle(name='SubTitle', parent=styles['h2'], alignment=TA_CENTER)
+    story.append(Paragraph(f"BUONO PRELIEVO {dati_buono.get('numero_buono', '')}", style_title))
+    story.append(Paragraph(f"{dati_buono.get('cliente', '')} - Commessa {dati_buono.get('commessa', '')}", style_subtitle))
+    story.append(Spacer(1, 1*cm))
+    style_body = ParagraphStyle(name='Body', parent=styles['Normal'], leading=14)
+    story.append(Paragraph(f"<b>Data Emissione:</b> {dati_buono.get('data_emissione', '')}", style_body))
+    story.append(Paragraph(f"<b>Commessa:</b> {dati_buono.get('commessa', '')}", style_body))
+    story.append(Paragraph(f"<b>Fornitore:</b> {dati_buono.get('fornitore', '')}", style_body))
+    story.append(Paragraph(f"<b>Protocollo:</b> {dati_buono.get('protocollo', '')}", style_body))
+    story.append(Spacer(1, 1*cm))
+    table_data = [['Ordine', 'Codice Articolo', 'Descrizione', 'Quantità', 'N.Arrivo']]
+    for art in articoli:
+        quantita = art.pezzo or art.n_colli or '1'
+        n_arrivo = art.n_arrivo or ''
+        table_data.append([art.ordine or 'None', art.codice_articolo or '', art.descrizione or '', quantita, n_arrivo])
+    t = Table(table_data, colWidths=[2.5*cm, 4*cm, 7*cm, 2.5*cm, 2.5*cm])
+    t.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 1, colors.black), ('BACKGROUND', (0,0), (-1,0), colors.lightgrey), ('VALIGN', (0,0), (-1,-1), 'TOP'), ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold')]))
+    story.append(t)
+    story.append(Spacer(1, 3*cm))
+    story.append(Paragraph("Firma Magazzino: ________________________", style_body))
+    story.append(Spacer(1, 1*cm))
+    story.append(Paragraph("Firma Cliente: ________________________", style_body))
+    doc.build(story)
+
+def generate_ddt_pdf(buffer, ddt_data, articoli, destinatario_info):
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1*cm, bottomMargin=2.5*cm, leftMargin=1.5*cm, rightMargin=1.5*cm)
+    story = []
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(name='BodyText', parent=styles['Normal'], spaceBefore=3, spaceAfter=3, leading=12))
+    styles.add(ParagraphStyle(name='HeaderText', parent=styles['BodyText'], alignment=TA_LEFT))
+    logo_path = STATIC_FOLDER / 'logo camar.jpg'
+    logo = RLImage(logo_path, width=6*cm, height=3*cm) if logo_path.exists() else Spacer(0, 0)
+    mittente_text = """<b>CAMAR S.R.L.</b><br/>Via Luigi Canepa, 2<br/>16165 Genova (GE)<br/>P.IVA / C.F. 03429300101"""
+    mittente_p = Paragraph(mittente_text, styles['HeaderText'])
+    header_table = Table([[logo, mittente_p]], colWidths=[7*cm, 11*cm], style=[('VALIGN', (0,0), (-1,-1), 'TOP')])
+    story.append(header_table)
+    story.append(Spacer(1, 1*cm))
+    dest_rag_soc = destinatario_info.get('ragione_sociale', '')
+    dest_indirizzo = destinatario_info.get('indirizzo', '')
+    dest_piva = destinatario_info.get('piva', '')
+    destinatario_text = f"""<b>Spett.le</b><br/>{dest_rag_soc}<br/>{dest_indirizzo}<br/>P.IVA: {dest_piva}"""
+    destinatario_p = Paragraph(destinatario_text, styles['BodyText'])
+    data_uscita_str = ""
+    data_uscita_obj = parse_date_safe(ddt_data.get('data_uscita'))
+    if data_uscita_obj:
+        data_uscita_str = data_uscita_obj.strftime('%d/%m/%Y')
+    ddt_details_text = f"""<b>DOCUMENTO DI TRASPORTO</b><br/><b>DDT N°:</b> {ddt_data.get('n_ddt', 'N/A')}<br/><b>Data:</b> {data_uscita_str}<br/>"""
+    ddt_details_p = Paragraph(ddt_details_text, styles['BodyText'])
+    details_table = Table([[destinatario_p, ddt_details_p]], colWidths=[10*cm, 8*cm], style=[('VALIGN', (0,0), (-1,-1), 'TOP')])
+    story.append(details_table)
+    story.append(Spacer(1, 1*cm))
+    table_data = [['Descrizione della merce', 'Cod. Articolo', 'Commessa', 'Q.tà Colli', 'Peso Lordo Kg']]
+    total_colli = 0
+    total_peso = 0.0
+    for art in articoli:
+        table_data.append([
+            Paragraph(art.descrizione or '', styles['BodyText']),
+            Paragraph(art.codice_articolo or '', styles['BodyText']),
+            Paragraph(art.commessa or '', styles['BodyText']),
+            art.n_colli or 0,
+            art.peso or 0.0
+        ])
+        total_colli += art.n_colli or 0
+        total_peso += art.peso or 0.0
+    article_table = Table(table_data, colWidths=[7*cm, 3*cm, 3*cm, 2*cm, 3*cm])
+    article_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.lightgrey), ('GRID', (0,0), (-1,-1), 1, colors.black),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('ALIGN', (3,1), (-1,-1), 'CENTER'),
+    ]))
+    story.append(article_table)
+    story.append(Spacer(1, 0.5*cm))
+    causale = Paragraph(f"<b>Causale del trasporto:</b> {ddt_data.get('causale_trasporto', 'C/Lavorazione')}", styles['BodyText'])
+    story.append(causale)
+    story.append(Spacer(1, 1*cm))
+    summary_text = f"""<b>Aspetto dei beni:</b> {ddt_data.get('aspetto_beni', 'Scatole/Pallet')}<br/><b>Totale Colli:</b> {total_colli}<br/><b>Peso Totale Lordo Kg:</b> {total_peso:.2f}<br/>"""
+    summary_p = Paragraph(summary_text, styles['BodyText'])
+    story.append(summary_p)
+    story.append(Spacer(1, 2*cm))
+    signature_table = Table([
+        ['<b>Firma Vettore</b>', '<b>Firma Destinatario</b>'], [Spacer(1, 2*cm), Spacer(1, 2*cm)],
+        ['___________________', '___________________']
+    ], colWidths=[9*cm, 9*cm], style=[('ALIGN', (0,0), (-1,-1), 'CENTER')])
+    story.append(signature_table)
+    doc.build(story)
+
+def send_email_with_attachments(to_address, subject, body_html, attachments):
+    smtp_host = os.environ.get("SMTP_HOST")
+    smtp_port = int(os.environ.get("SMTP_PORT", 587))
+    smtp_user = os.environ.get("SMTP_USER")
+    smtp_pass = os.environ.get("SMTP_PASS")
+    from_addr = os.environ.get("FROM_EMAIL", smtp_user)
+    if not all([smtp_host, smtp_port, smtp_user, smtp_pass, from_addr]):
+        raise ValueError("Configurazione SMTP incompleta. Imposta le variabili d'ambiente.")
+    msg = EmailMessage()
+    msg["From"] = from_addr
+    msg["To"] = to_address
+    msg["Subject"] = subject
+    msg.set_content("Per visualizzare questo messaggio, è necessario un client di posta elettronica compatibile con HTML.")
+    msg.add_alternative(body_html, subtype='html')
+    for att_path, att_filename in attachments:
+        with open(att_path, 'rb') as f:
+            file_data = f.read()
+            ctype = 'application/octet-stream'
+            if att_filename.endswith('.pdf'): ctype = 'application/pdf'
+            elif att_filename.lower().endswith(('.jpg', '.jpeg')): ctype = 'image/jpeg'
+            elif att_filename.lower().endswith('.png'): ctype = 'image/png'
+            maintype, subtype = ctype.split('/', 1)
+            msg.add_attachment(file_data, maintype=maintype, subtype=subtype, filename=att_filename)
+    with smtplib.SMTP(smtp_host, port=smtp_port) as server:
+        server.starttls()
+        server.login(smtp_user, smtp_pass)
+        server.send_message(msg)
 
 # --- 6. ROTTE DELL'APPLICAZIONE ---
+@app.before_request
+def check_login():
+    if 'user' not in session and request.endpoint not in ['login', 'static']:
+        return redirect(url_for('login'))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username'].upper().strip()
+        password = request.form['password']
+        if username in USER_CREDENTIALS and USER_CREDENTIALS[username] == password:
+            session['user'] = username
+            session['role'] = 'admin' if username in ADMIN_USERS else 'client'
+            flash('Login effettuato con successo.', 'success')
+            return redirect(url_for('index'))
+        else:
+            flash('Credenziali non valide.', 'danger')
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    flash('Sei stato disconnesso.', 'info')
+    return redirect(url_for('login'))
 
 @app.route('/')
 def index():
     query = Articolo.query
     if session.get('role') == 'client':
         query = query.filter(Articolo.cliente.ilike(session['user']))
-
-    # NUOVA LOGICA FILTRI COMPLETA
+    
     filters = {k: v for k, v in request.args.items() if v}
     if filters:
         for key, value in filters.items():
@@ -129,12 +300,321 @@ def index():
 
     articoli = query.order_by(Articolo.id.desc()).all()
     
-    # ... calcolo totali ...
-    return render_template('index.html', articoli=articoli, totali={}, filters=filters)
+    totali = { 'colli': 0, 'peso': 0.0, 'm2': 0.0, 'm3': 0.0 }
+    articoli_in_giacenza = [art for art in articoli if not art.n_ddt_uscita]
+    for art in articoli_in_giacenza:
+        totali['colli'] += art.n_colli or 0
+        totali['peso'] += art.peso or 0.0
+        totali['m2'] += art.m2 or 0.0
+        totali['m3'] += art.m3 or 0.0
 
-# ... (Tutte le altre rotte fino a `etichetta_manuale`)
+    return render_template('index.html', articoli=articoli, totali=totali, filters=filters)
 
-# MODIFICATA: per pre-compilare i campi
+def populate_articolo_from_form(articolo, form):
+    articolo.codice_articolo = form.get('codice_articolo')
+    articolo.descrizione = form.get('descrizione')
+    articolo.cliente = form.get('cliente')
+    articolo.fornitore = form.get('fornitore')
+    articolo.data_ingresso = parse_date_safe(form.get('data_ingresso'))
+    articolo.n_ddt_ingresso = form.get('n_ddt_ingresso')
+    articolo.commessa = form.get('commessa')
+    articolo.ordine = form.get('ordine')
+    articolo.n_colli = to_int_safe(form.get('n_colli'))
+    articolo.peso = to_float_safe(form.get('peso'))
+    articolo.larghezza = to_float_safe(form.get('larghezza'))
+    articolo.lunghezza = to_float_safe(form.get('lunghezza'))
+    articolo.altezza = to_float_safe(form.get('altezza'))
+    articolo.m2, articolo.m3 = calculate_m2_m3(form)
+    articolo.posizione = form.get('posizione')
+    articolo.stato = form.get('stato')
+    articolo.note = form.get('note')
+    articolo.pezzo = form.get('pezzo')
+    articolo.protocollo = form.get('protocollo')
+    articolo.serial_number = form.get('serial_number')
+    articolo.n_arrivo = form.get('n_arrivo')
+    articolo.ns_rif = form.get('ns_rif')
+    articolo.mezzi_in_uscita = form.get('mezzi_in_uscita')
+    articolo.buono_n = form.get('buono_n')
+    articolo.data_uscita = parse_date_safe(form.get('data_uscita'))
+    articolo.n_ddt_uscita = form.get('n_ddt_uscita')
+    return articolo
+
+@app.route('/articolo/nuovo', methods=['GET', 'POST'])
+def add_articolo():
+    if session.get('role') != 'admin': abort(403)
+    if request.method == 'POST':
+        nuovo_articolo = Articolo()
+        populate_articolo_from_form(nuovo_articolo, request.form)
+        db.session.add(nuovo_articolo)
+        db.session.commit()
+        flash('Articolo aggiunto con successo!', 'success')
+        return redirect(url_for('edit_articolo', id=nuovo_articolo.id))
+    return render_template('edit.html', articolo=None, title="Aggiungi Articolo")
+
+@app.route('/articolo/<int:id>/modifica', methods=['GET', 'POST'])
+def edit_articolo(id):
+    articolo = Articolo.query.get_or_404(id)
+    if session.get('role') == 'client' and session.get('user') != articolo.cliente: abort(403)
+    if request.method == 'POST':
+        if session.get('role') != 'admin': abort(403)
+        populate_articolo_from_form(articolo, request.form)
+        files = request.files.getlist('files')
+        for file in files:
+            if file and file.filename != '' and allowed_file(file.filename):
+                filename = secure_filename(f"{articolo.id}_{datetime.now().timestamp()}_{file.filename}")
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                file.save(file_path)
+                ext = filename.rsplit('.', 1)[1].lower()
+                tipo = 'doc' if ext == 'pdf' else 'foto'
+                allegato = Allegato(filename=filename, tipo=tipo, articolo_id=articolo.id)
+                db.session.add(allegato)
+        db.session.commit()
+        flash('Articolo aggiornato con successo!', 'success')
+        return redirect(url_for('edit_articolo', id=id))
+    return render_template('edit.html', articolo=articolo, title="Modifica Articolo")
+
+@app.route('/uploads/<path:filename>')
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+@app.route('/allegato/<int:id>/elimina', methods=['POST'])
+def delete_attachment(id):
+    if session.get('role') != 'admin': abort(403)
+    allegato = Allegato.query.get_or_404(id)
+    try:
+        os.remove(os.path.join(app.config['UPLOAD_FOLDER'], allegato.filename))
+    except OSError:
+        pass 
+    db.session.delete(allegato)
+    db.session.commit()
+    flash('Allegato eliminato.', 'success')
+    return redirect(url_for('edit_articolo', id=allegato.articolo_id))
+
+@app.route('/import', methods=['GET', 'POST'])
+def import_excel():
+    if session.get('role') != 'admin': abort(403)
+    profiles_path = CONFIG_FOLDER / 'mappe_excel.json'
+    if not profiles_path.exists():
+        flash('File profili (mappe_excel.json) non trovato.', 'danger')
+        return redirect(url_for('index'))
+    with open(profiles_path, 'r', encoding='utf-8') as f:
+        profiles = json.load(f)
+    if request.method == 'POST':
+        file = request.files.get('file')
+        profile_name = request.form.get('profile')
+        profile = profiles.get(profile_name)
+        if not file or file.filename == '' or not profile:
+            flash('File o profilo mancante.', 'warning')
+            return redirect(request.url)
+        try:
+            df = pd.read_excel(file, header=profile.get('header_row', 0), dtype=str, engine='openpyxl').fillna('')
+            col_map = profile.get('column_map', {})
+            added_count = 0
+            for index, row in df.iterrows():
+                first_excel_col = next(iter(col_map.keys()))
+                if not row.get(first_excel_col): continue
+                new_art = Articolo()
+                form_data = {db_col: row.get(excel_col) for excel_col, db_col in col_map.items()}
+                populate_articolo_from_form(new_art, form_data)
+                db.session.add(new_art)
+                added_count += 1
+            db.session.commit()
+            flash(f'Importazione completata. {added_count} articoli aggiunti.', 'success')
+            return redirect(url_for('index'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Errore durante l'importazione: {e}", "danger")
+            logging.error(f"Errore import: {e}", exc_info=True)
+            return redirect(request.url)
+    return render_template('import.html', profiles=profiles.keys())
+    
+@app.route('/export')
+def export_excel():
+    ids_str = request.args.get('ids')
+    query = Articolo.query
+    if session.get('role') == 'client':
+        query = query.filter(Articolo.cliente.ilike(session['user']))
+    
+    filters = {k: v for k, v in request.args.items() if v and k != 'ids'}
+    if filters:
+        for key, value in filters.items():
+            if hasattr(Articolo, key):
+                if key in ['data_ingresso_da', 'data_ingresso_a', 'data_uscita_da', 'data_uscita_a']:
+                    date_val = parse_date_safe(value)
+                    if date_val:
+                        if key == 'data_ingresso_da': query = query.filter(Articolo.data_ingresso >= date_val)
+                        if key == 'data_ingresso_a': query = query.filter(Articolo.data_ingresso <= date_val)
+                        if key == 'data_uscita_da': query = query.filter(Articolo.data_uscita >= date_val)
+                        if key == 'data_uscita_a': query = query.filter(Articolo.data_uscita <= date_val)
+                elif key == 'id':
+                     query = query.filter(Articolo.id == value)
+                else:
+                    query = query.filter(getattr(Articolo, key).ilike(f"%{value}%"))
+
+    if ids_str:
+        try:
+            ids = [int(i) for i in ids_str.split(',')]
+            query = Articolo.query.filter(Articolo.id.in_(ids))
+        except ValueError:
+            flash('ID per esportazione non validi.', 'warning')
+            return redirect(url_for('index'))
+            
+    articoli = query.order_by(Articolo.id.asc()).all()
+    if not articoli:
+        flash('Nessun articolo da esportare per i criteri selezionati.', 'info')
+        return redirect(url_for('index'))
+        
+    data = []
+    for art in articoli:
+        art_data = {c.name: getattr(art, c.name) for c in art.__table__.columns}
+        art_data['allegati'] = ", ".join([a.filename for a in art.allegati])
+        data.append(art_data)
+
+    df = pd.DataFrame(data)
+    
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Giacenze')
+    output.seek(0)
+    
+    filename = "esportazione_selezionata.xlsx" if ids_str else "esportazione_completa.xlsx"
+    return send_file(output, as_attachment=True, download_name=filename, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+@app.route('/buono/setup', methods=['GET', 'POST'])
+def buono_setup():
+    if session.get('role') != 'admin': abort(403)
+    ids_str = request.args.get('ids', '')
+    if not ids_str: return redirect(url_for('index'))
+    ids = [int(i) for i in ids_str.split(',')]
+    articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
+    primo_articolo = articoli[0] if articoli else None
+    if request.method == 'POST':
+        buono_n = request.form.get('buono_n')
+        if not buono_n:
+            flash("Il numero del buono è obbligatorio.", "danger")
+            return render_template('buono_setup.html', articoli=articoli, ids=ids_str, primo_articolo=primo_articolo)
+        for art in articoli: art.buono_n = buono_n
+        db.session.commit()
+        dati_buono = {
+            'numero_buono': buono_n,
+            'cliente': request.form.get('cliente'),
+            'commessa': request.form.get('commessa'),
+            'protocollo': request.form.get('protocollo'),
+            'fornitore': primo_articolo.fornitore if primo_articolo else '',
+            'data_emissione': date.today().strftime('%d/%m/%Y'),
+        }
+        buffer = io.BytesIO()
+        generate_buono_prelievo_pdf(buffer, dati_buono, articoli)
+        buffer.seek(0)
+        flash(f"Buono N. {buono_n} assegnato. I dati sono stati salvati.", "success")
+        return send_file(buffer, as_attachment=True, download_name=f'Buono_{buono_n}.pdf', mimetype='application/pdf')
+    return render_template('buono_setup.html', articoli=articoli, ids=ids_str, primo_articolo=primo_articolo)
+
+@app.route('/buono/preview', methods=['POST'])
+def buono_preview():
+    if session.get('role') != 'admin': abort(403)
+    ids_str = request.args.get('ids', '')
+    if not ids_str:
+        return "Errore: Articoli non specificati.", 400
+    ids = [int(i) for i in ids_str.split(',')]
+    articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
+    primo_articolo = articoli[0] if articoli else None
+    dati_buono = {
+        'numero_buono': request.form.get('buono_n', '(ANTEPRIMA)'),
+        'cliente': request.form.get('cliente'),
+        'commessa': request.form.get('commessa'),
+        'protocollo': request.form.get('protocollo'),
+        'fornitore': primo_articolo.fornitore if primo_articolo else '',
+        'data_emissione': date.today().strftime('%d/%m/%Y'),
+    }
+    buffer = io.BytesIO()
+    generate_buono_prelievo_pdf(buffer, dati_buono, articoli)
+    buffer.seek(0)
+    return send_file(
+        buffer, 
+        as_attachment=False, 
+        download_name='Anteprima_Buono_Prelievo.pdf', 
+        mimetype='application/pdf'
+    )
+
+@app.route('/ddt/setup', methods=['GET', 'POST'])
+def ddt_setup():
+    if session.get('role') != 'admin': abort(403)
+    ids_str = request.args.get('ids', '')
+    if not ids_str: return redirect(url_for('index'))
+    ids = [int(i) for i in ids_str.split(',')]
+    articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
+    articoli_gia_usciti = [art.id for art in articoli if art.n_ddt_uscita]
+    if articoli_gia_usciti:
+        flash(f"Attenzione: Gli articoli ID {articoli_gia_usciti} risultano già spediti.", "warning")
+        articoli = [art for art in articoli if not art.n_ddt_uscita]
+        ids_str = ','.join(map(str, [art.id for art in articoli]))
+        if not articoli:
+            return redirect(url_for('index'))
+    dest_path = CONFIG_FOLDER / 'destinatari_saved.json'
+    destinatari = {}
+    if dest_path.exists():
+        try:
+            with open(dest_path, 'r', encoding='utf-8') as f: 
+                data = json.load(f)
+                if isinstance(data, dict):
+                    destinatari = data
+        except (json.JSONDecodeError, IOError):
+            pass
+    if request.method == 'POST':
+        n_ddt = request.form.get('n_ddt')
+        if not n_ddt:
+            flash("Il numero del DDT è obbligatorio.", "danger")
+            return render_template('ddt_setup.html', articoli=articoli, ids=ids_str, destinatari=destinatari, today=date.today().isoformat())
+        data_uscita = parse_date_safe(request.form.get('data_uscita')) or date.today()
+        for art in articoli:
+            art.n_ddt_uscita = n_ddt
+            art.data_uscita = data_uscita
+            art.stato = 'Uscito'
+        db.session.commit()
+        buffer = io.BytesIO()
+        ddt_data = request.form.to_dict()
+        ddt_data['n_ddt'] = n_ddt
+        destinatario_scelto = destinatari.get(request.form.get('destinatario_key'), {})
+        generate_ddt_pdf(buffer, ddt_data, articoli, destinatario_scelto)
+        buffer.seek(0)
+        flash(f"Articoli scaricati con DDT N. {n_ddt}. I dati sono stati salvati.", "success")
+        return send_file(buffer, as_attachment=True, download_name=f'DDT_{n_ddt.replace("/", "-")}.pdf', mimetype='application/pdf')
+    return render_template('ddt_setup.html', articoli=articoli, ids=ids_str, destinatari=destinatari, today=date.today().isoformat())
+
+@app.route('/ddt/preview', methods=['POST'])
+def ddt_preview():
+    if session.get('role') != 'admin': abort(403)
+    ids_str = request.args.get('ids', '')
+    if not ids_str: return "Errore: Articoli non specificati.", 400
+    
+    ids = [int(i) for i in ids_str.split(',')]
+    articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
+    
+    dest_path = CONFIG_FOLDER / 'destinatari_saved.json'
+    destinatari = {}
+    if dest_path.exists():
+        try:
+            with open(dest_path, 'r', encoding='utf-8') as f: 
+                data = json.load(f)
+                if isinstance(data, dict): destinatari = data
+        except (json.JSONDecodeError, IOError): pass
+
+    buffer = io.BytesIO()
+    ddt_data = request.form.to_dict()
+    ddt_data['n_ddt'] = request.form.get('n_ddt', '(ANTEPRIMA)')
+    destinatario_scelto = destinatari.get(request.form.get('destinatario_key'), {})
+    
+    generate_ddt_pdf(buffer, ddt_data, articoli, destinatario_scelto)
+    buffer.seek(0)
+
+    return send_file(
+        buffer,
+        as_attachment=False,
+        download_name='ANTEPRIMA_DDT.pdf',
+        mimetype='application/pdf'
+    )
+
 @app.route('/etichetta', methods=['GET', 'POST'])
 def etichetta_manuale():
     if session.get('role') != 'admin': abort(403)
@@ -146,12 +626,44 @@ def etichetta_manuale():
         articolo_selezionato = Articolo.query.get(first_id)
 
     if request.method == 'POST':
-        # ... (La logica POST rimane invariata)
-        pass
+        data = request.form.to_dict()
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=(100*mm, 62*mm), margins=(5*mm, 5*mm, 5*mm, 5*mm))
+        styles = getSampleStyleSheet()
+        testo_etichetta = []
+        for key, value in data.items():
+            if value:
+                testo_etichetta.append(f"<b>{key.replace('_', ' ').title()}:</b> {value}")
+        full_text = "<br/>".join(testo_etichetta)
+        story = [Paragraph(full_text, styles['Normal'])]
+        doc.build(story)
+        buffer.seek(0)
+        return send_file(buffer, as_attachment=True, download_name='etichetta.pdf', mimetype='application/pdf')
         
     return render_template('etichetta_manuale.html', articolo=articolo_selezionato)
 
-# NUOVA FUNZIONE: Duplica articolo
+@app.route('/etichetta/preview', methods=['POST'])
+def etichetta_preview():
+    if session.get('role') != 'admin': abort(403)
+    data = request.form.to_dict()
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=(100*mm, 62*mm), margins=(5*mm, 5*mm, 5*mm, 5*mm))
+    styles = getSampleStyleSheet()
+    testo_etichetta = []
+    for key, value in data.items():
+        if value:
+            testo_etichetta.append(f"<b>{key.replace('_', ' ').title()}:</b> {value}")
+    full_text = "<br/>".join(testo_etichetta)
+    story = [Paragraph(full_text, styles['Normal'])]
+    doc.build(story)
+    buffer.seek(0)
+    return send_file(
+        buffer,
+        as_attachment=False,
+        download_name='Anteprima_Etichetta.pdf',
+        mimetype='application/pdf'
+    )
+
 @app.route('/articolo/duplica')
 def duplica_articolo():
     if session.get('role') != 'admin': abort(403)
@@ -160,16 +672,15 @@ def duplica_articolo():
         flash("Nessun articolo selezionato per la duplicazione.", "warning")
         return redirect(url_for('index'))
     
-    original_id = ids_str.split(',')[0] # Duplica solo il primo selezionato
+    original_id = ids_str.split(',')[0]
     original_articolo = Articolo.query.get_or_404(original_id)
     
-    # Crea una copia in memoria
     nuovo_articolo = Articolo()
     for col in Articolo.__table__.columns:
         if col.name not in ['id', 'data_ingresso', 'n_ddt_uscita', 'data_uscita', 'buono_n']:
             setattr(nuovo_articolo, col.name, getattr(original_articolo, col.name))
     
-    nuovo_articolo.data_ingresso = date.today() # Imposta la data di oggi
+    nuovo_articolo.data_ingresso = date.today()
     
     db.session.add(nuovo_articolo)
     db.session.commit()
@@ -177,4 +688,128 @@ def duplica_articolo():
     flash(f"Articolo {original_id} duplicato con successo nel nuovo ID {nuovo_articolo.id}.", "success")
     return redirect(url_for('edit_articolo', id=nuovo_articolo.id))
 
-# ... (Tutte le altre funzioni fino alla fine)
+@app.route('/articoli/delete_bulk', methods=['POST'])
+def bulk_delete():
+    if session.get('role') != 'admin': abort(403)
+    ids_str = request.form.get('selected_ids')
+    if ids_str:
+        ids = [int(i) for i in ids_str.split(',')]
+        Allegato.query.filter(Allegato.articolo_id.in_(ids)).delete(synchronize_session=False)
+        Articolo.query.filter(Articolo.id.in_(ids)).delete(synchronize_session=False)
+        db.session.commit()
+        flash(f"{len(ids)} articoli eliminati con successo.", "success")
+    else:
+        flash("Nessun articolo selezionato per l'eliminazione.", "warning")
+    return redirect(url_for('index'))
+
+@app.route('/articoli/edit_multiple', methods=['GET', 'POST'])
+def edit_multiple():
+    if session.get('role') != 'admin': abort(403)
+    ids_str = request.args.get('ids', '')
+    if not ids_str:
+        flash("Nessun articolo selezionato per la modifica.", "warning")
+        return redirect(url_for('index'))
+    ids = [int(i) for i in ids_str.split(',')]
+    articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
+    if request.method == 'POST':
+        for art in articoli:
+            for field, value in request.form.items():
+                if f"update_{field}" in request.form and value:
+                    setattr(art, field, value)
+        db.session.commit()
+        flash(f"{len(articoli)} articoli aggiornati.", "success")
+        return redirect(url_for('index'))
+    return render_template('edit_multiple.html', articoli=articoli, ids=ids_str)
+
+@app.route('/destinatari', methods=['GET', 'POST'])
+def gestione_destinatari():
+    if session.get('role') != 'admin': abort(403)
+    dest_path = CONFIG_FOLDER / 'destinatari_saved.json'
+    destinatari = {}
+    try:
+        with open(dest_path, 'r', encoding='utf-8') as f: 
+            data = json.load(f)
+            if isinstance(data, dict):
+                destinatari = data
+    except (FileNotFoundError, json.JSONDecodeError):
+        pass
+    if request.method == 'POST':
+        if 'delete_key' in request.form:
+            key_to_delete = request.form['delete_key']
+            if key_to_delete in destinatari:
+                del destinatari[key_to_delete]
+                flash(f'Destinatario "{key_to_delete}" eliminato.', 'success')
+        else:
+            nickname = request.form.get('nickname')
+            ragione_sociale = request.form.get('ragione_sociale')
+            indirizzo = request.form.get('indirizzo')
+            piva = request.form.get('piva')
+            if nickname and ragione_sociale and indirizzo:
+                destinatari[nickname.upper()] = {"ragione_sociale": ragione_sociale, "indirizzo": indirizzo, "piva": piva}
+                flash(f'Destinatario "{nickname.upper()}" aggiunto/aggiornato.', 'success')
+            else:
+                flash('Nickname, Ragione Sociale e Indirizzo sono obbligatori.', 'warning')
+        with open(dest_path, 'w', encoding='utf-8') as f: json.dump(destinatari, f, indent=4, ensure_ascii=False)
+        return redirect(url_for('gestione_destinatari'))
+    return render_template('destinatari.html', destinatari=destinatari)
+    
+@app.route('/api/attachments')
+def get_attachments():
+    ids_str = request.args.get('ids', '')
+    if not ids_str:
+        return jsonify([])
+    ids = [int(i) for i in ids_str.split(',')]
+    allegati = Allegato.query.filter(Allegato.articolo_id.in_(ids)).all()
+    return jsonify([{'id': a.id, 'filename': a.filename, 'articolo_id': a.articolo_id} for a in allegati])
+
+@app.route('/email/invia', methods=['POST'])
+def invia_email():
+    if session.get('role') != 'admin': abort(403)
+    to_addr = request.form.get('email_destinatario')
+    subject = request.form.get('email_oggetto')
+    allegati_ids = request.form.getlist('allegati_selezionati')
+    if not to_addr or not subject or not allegati_ids:
+        flash("Compila tutti i campi per inviare l'email.", "warning")
+        return redirect(request.referrer or url_for('index'))
+    allegati_da_inviare = Allegato.query.filter(Allegato.id.in_(allegati_ids)).all()
+    allegati_paths = [(UPLOAD_FOLDER / a.filename, a.filename) for a in allegati_da_inviare]
+    firma_html = """<p>Cordiali Saluti,<br><b>Camar Srl</b></p>"""
+    body_html = f"<html><body><p>Buongiorno,</p><p>In allegato i file richiesti.</p><br>{firma_html}</body></html>"
+    try:
+        send_email_with_attachments(to_addr, subject, body_html, allegati_paths)
+        flash(f"Email inviata con successo a {to_addr}", "success")
+    except Exception as e:
+        logging.error(f"Errore invio email: {e}", exc_info=True)
+        flash(f"Errore durante l'invio dell'email: {e}", "danger")
+    return redirect(request.referrer or url_for('index'))
+
+# --- 7. SETUP E AVVIO APPLICAZIONE ---
+def initialize_app():
+    db_path = DATA_DIR / "magazzino_web.db"
+    if db_path.exists():
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_path = BACKUP_FOLDER / f"magazzino_backup_{timestamp}.db"
+        try:
+            shutil.copy(db_path, backup_path)
+            logging.info(f"Backup del database creato con successo: {backup_path}")
+        except Exception as e:
+            logging.error(f"Errore durante la creazione del backup: {e}")
+    source_dir = Path(__file__).resolve().parent
+    for filename in ['mappe_excel.json', 'progressivi_ddt.json', 'destinatari_saved.json']:
+        source_path = source_dir / filename
+        dest_path = CONFIG_FOLDER / filename
+        if source_path.exists() and not dest_path.exists():
+            try:
+                shutil.copy(source_path, dest_path)
+                logging.info(f"Copiato file di configurazione '{filename}' in {CONFIG_FOLDER}")
+            except Exception as e:
+                logging.error(f"Impossibile copiare '{filename}': {e}")
+    with app.app_context():
+        db.create_all()
+        logging.info("Database verificato/creato.")
+
+initialize_app()
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5001))
+    app.run(host='0.0.0.0', port=port, debug=False)
