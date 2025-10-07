@@ -251,7 +251,7 @@ def send_email_with_attachments(to_address, subject, body_html, attachments):
 # --- 6. ROTTE DELL'APPLICAZIONE ---
 @app.before_request
 def check_login():
-    if 'user' not in session and request.endpoint not in ['login', 'static']:
+    if 'user' not in session and request.endpoint not in ['login', 'main_menu', 'static']:
         return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -276,15 +276,10 @@ def logout():
 
 @app.route('/')
 def main_menu():
-    if 'user' not in session:
-        return redirect(url_for('login'))
     return render_template('main_menu.html')
 
 @app.route('/giacenze')
 def visualizza_giacenze():
-    if 'user' not in session:
-        return redirect(url_for('login'))
-        
     query = Articolo.query
     if session.get('role') == 'client':
         query = query.filter(Articolo.cliente.ilike(session['user']))
@@ -330,6 +325,7 @@ def populate_articolo_from_form(articolo, form):
             else:
                 setattr(articolo, col.name, value if value else None)
     
+    # Ricalcola m2 e m3 se le dimensioni sono cambiate
     if any(k in form for k in ['lunghezza', 'larghezza', 'altezza', 'n_colli']):
         articolo.m2, articolo.m3 = calculate_m2_m3(form)
 
