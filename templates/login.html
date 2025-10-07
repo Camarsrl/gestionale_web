@@ -1,15 +1,30 @@
 {% extends "layout.html" %}
+
 {% block content %}
-<div class="row justify-content-center">
+<div class="row justify-content-center mt-5">
     <div class="col-md-4">
-        <div class="card">
-            <div class="card-body">
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
                 <div class="text-center mb-4">
-                    {% if logo_url %}<img src="{{ logo_url }}" alt="Logo" style="max-width: 150px;">{% endif %}
+                    {% if logo_url %}
+                        <img src="{{ logo_url }}" alt="Logo" style="max-width: 180px; height: auto;">
+                    {% endif %}
                 </div>
-                <h3 class="card-title text-center">Login</h3>
-                <form method="post">
-                    </form>
+                <h3 class="card-title text-center mb-4">Login</h3>
+                
+                <form method="post" action="{{ url_for('login') }}">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="username" name="username" required autofocus>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    <div class="d-grid mt-4">
+                        <button type="submit" class="btn btn-primary">Accedi</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
