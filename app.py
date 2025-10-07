@@ -227,7 +227,7 @@ def send_email_with_attachments(to_address, subject, body_html, attachments):
     smtp_pass = os.environ.get("SMTP_PASS")
     from_addr = os.environ.get("FROM_EMAIL", smtp_user)
     if not all([smtp_host, smtp_port, smtp_user, smtp_pass, from_addr]):
-        raise ValueError("Configurazione SMTP incompleta. Imposta le variabili d'ambiente.")
+        raise ValueError("Configurazione SMTP incompleta.")
     msg = EmailMessage()
     msg["From"] = from_addr
     msg["To"] = to_address
@@ -251,7 +251,7 @@ def send_email_with_attachments(to_address, subject, body_html, attachments):
 # --- 6. ROTTE DELL'APPLICAZIONE ---
 @app.before_request
 def check_login():
-    if 'user' not in session and request.endpoint not in ['login', 'main_menu', 'static']:
+    if 'user' not in session and request.endpoint not in ['login', 'static', 'main_menu']:
         return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -276,10 +276,15 @@ def logout():
 
 @app.route('/')
 def main_menu():
+    if 'user' not in session:
+        return redirect(url_for('login'))
     return render_template('main_menu.html')
 
 @app.route('/giacenze')
 def visualizza_giacenze():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+        
     query = Articolo.query
     if session.get('role') == 'client':
         query = query.filter(Articolo.cliente.ilike(session['user']))
@@ -325,10 +330,8 @@ def populate_articolo_from_form(articolo, form):
             else:
                 setattr(articolo, col.name, value if value else None)
     
-    # Ricalcola m2 e m3 se le dimensioni sono cambiate
     if any(k in form for k in ['lunghezza', 'larghezza', 'altezza', 'n_colli']):
         articolo.m2, articolo.m3 = calculate_m2_m3(form)
-
     return articolo
 
 @app.route('/articolo/nuovo', methods=['GET', 'POST'])
@@ -608,7 +611,7 @@ def ddt_preview():
     buffer.seek(0)
     return send_file(buffer, as_attachment=False, download_name='ANTEPRIMA_DDT.pdf', mimetype='application/pdf')
 
-@app.route('/etichetta', methods=['GET', 'POST'])
+@app.route('/etichetta', methods=['GET'])
 def etichetta_manuale():
     if session.get('role') != 'admin': abort(403)
     articolo_selezionato = None
@@ -616,20 +619,6 @@ def etichetta_manuale():
     if ids_str:
         first_id = ids_str.split(',')[0]
         articolo_selezionato = Articolo.query.get(first_id)
-    if request.method == 'POST':
-        data = request.form.to_dict()
-        buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=(100*mm, 62*mm), margins=(5*mm, 5*mm, 5*mm, 5*mm))
-        styles = getSampleStyleSheet()
-        testo_etichetta = []
-        for key, value in data.items():
-            if value:
-                testo_etichetta.append(f"<b>{key.replace('_', ' ').title()}:</b> {value}")
-        full_text = "<br/>".join(testo_etichetta)
-        story = [Paragraph(full_text, styles['Normal'])]
-        doc.build(story)
-        buffer.seek(0)
-        return send_file(buffer, as_attachment=True, download_name='etichetta.pdf', mimetype='application/pdf')
     return render_template('etichetta_manuale.html', articolo=articolo_selezionato)
 
 @app.route('/etichetta/preview', methods=['POST'])
@@ -637,15 +626,20 @@ def etichetta_preview():
     if session.get('role') != 'admin': abort(403)
     data = request.form.to_dict()
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=(100*mm, 62*mm), margins=(5*mm, 5*mm, 5*mm, 5*mm))
     styles = getSampleStyleSheet()
+    styleN = ParagraphStyle(name='Normal', parent=styles['Normal'], fontSize=9, leading=11)
+    doc = SimpleDocTemplate(buffer, pagesize=(100*mm, 62*mm), margins=(5*mm, 5*mm, 5*mm, 5*mm))
     testo_etichetta = []
     for key, value in data.items():
         if value:
             testo_etichetta.append(f"<b>{key.replace('_', ' ').title()}:</b> {value}")
     full_text = "<br/>".join(testo_etichetta)
-    story = [Paragraph(full_text, styles['Normal'])]
-    doc.build(story)
+    story = [Paragraph(full_text, styleN)]
+    try:
+        doc.build(story)
+    except Exception as e:
+        logging.error(f"Errore generazione etichetta: {e}")
+        return "Errore: il testo è troppo lungo per entrare nell'etichetta.", 400
     buffer.seek(0)
     return send_file(buffer, as_attachment=False, download_name='Anteprima_Etichetta.pdf', mimetype='application/pdf')
 
@@ -692,10 +686,18 @@ def edit_multiple():
     ids = [int(i) for i in ids_str.split(',')]
     articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
     if request.method == 'POST':
+        campi_da_aggiornare = {}
+        for field, value in request.form.items():
+            if f"update_{field}" in request.form and value:
+                campi_da_aggiornare[field] = value
+
+        if not campi_da_aggiornare:
+            flash("Nessun campo selezionato per l'aggiornamento.", "warning")
+            return render_template('edit_multiple.html', articoli=articoli, ids=ids_str)
+
         for art in articoli:
-            for field, value in request.form.items():
-                if f"update_{field}" in request.form and value:
-                    setattr(art, field, value)
+            for field, value in campi_da_aggiornare.items():
+                setattr(art, field, value)
         db.session.commit()
         flash(f"{len(articoli)} articoli aggiornati.", "success")
         return redirect(url_for('visualizza_giacenze'))
@@ -709,8 +711,7 @@ def gestione_destinatari():
     try:
         with open(dest_path, 'r', encoding='utf-8') as f: 
             data = json.load(f)
-            if isinstance(data, dict):
-                destinatari = data
+            if isinstance(data, dict): destinatari = data
     except (FileNotFoundError, json.JSONDecodeError): pass
     if request.method == 'POST':
         if 'delete_key' in request.form:
