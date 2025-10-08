@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+
 {% block content %}
 <div class="card p-4">
     <h3>Crea Documento di Trasporto (DDT)</h3>
@@ -27,8 +28,9 @@
         <div class="mt-4">
             <button type="submit" formaction="{{ url_for('ddt_setup', ids=request.args.get('ids')) }}" class="btn btn-primary">Genera DDT e Scarica</button>
             <button type="submit" formaction="{{ url_for('ddt_preview', ids=request.args.get('ids')) }}" formtarget="_blank" class="btn btn-info">Anteprima DDT</button>
-            <a href="{{ url_for('index') }}" class="btn btn-secondary">Annulla</a>
-        </div>
+            
+            <a href="{{ url_for('visualizza_giacenze') }}" class="btn btn-secondary">Annulla</a>
+            </div>
     </form>
 </div>
 {% endblock %}
