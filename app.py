@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
-"""
-Camar • Gestionale Web – build aggiornata (Ottobre 2025)
-© Copyright Alessia Moncalvo
-Tutti i diritti riservati.
-"""
 
-import os, io, re, json, uuid, shutil
+# --- 1. IMPORT LIBRERIE ---
+import os
+import shutil
+import json
+import logging
 from datetime import datetime, date
 from pathlib import Path
+import io
 from copy import deepcopy
-from flask import (Flask, request, render_template, redirect, url_for,
+from flask import (Flask, request, redirect, url_for, render_template,
                    flash, send_from_directory, abort, session, jsonify, send_file)
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -125,16 +125,128 @@ def calculate_m2_m3(form_data):
     return m2, m3
 
 def generate_buono_prelievo_pdf(buffer, dati_buono, articoli):
-    # ... (Il codice di questa funzione rimane invariato)
-    pass
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1.5*cm, bottomMargin=2*cm, leftMargin=2*cm, rightMargin=2*cm)
+    story = []
+    styles = getSampleStyleSheet()
+    logo_path = STATIC_FOLDER / 'logo camar.jpg'
+    if logo_path.exists():
+        img = RLImage(logo_path, width=7*cm, height=3.5*cm, hAlign='CENTER')
+        story.append(img)
+        story.append(Spacer(1, 1*cm))
+    style_title = ParagraphStyle(name='Title', parent=styles['h1'], alignment=TA_CENTER, spaceAfter=6)
+    style_subtitle = ParagraphStyle(name='SubTitle', parent=styles['h2'], alignment=TA_CENTER)
+    story.append(Paragraph(f"BUONO PRELIEVO {dati_buono.get('numero_buono', '')}", style_title))
+    story.append(Paragraph(f"{dati_buono.get('cliente', '')} - Commessa {dati_buono.get('commessa', '')}", style_subtitle))
+    story.append(Spacer(1, 1*cm))
+    style_body = ParagraphStyle(name='Body', parent=styles['Normal'], leading=14)
+    story.append(Paragraph(f"<b>Data Emissione:</b> {dati_buono.get('data_emissione', '')}", style_body))
+    story.append(Paragraph(f"<b>Commessa:</b> {dati_buono.get('commessa', '')}", style_body))
+    story.append(Paragraph(f"<b>Fornitore:</b> {dati_buono.get('fornitore', '')}", style_body))
+    story.append(Paragraph(f"<b>Protocollo:</b> {dati_buono.get('protocollo', '')}", style_body))
+    story.append(Spacer(1, 1*cm))
+    table_data = [['Ordine', 'Codice Articolo', 'Descrizione', 'Quantità', 'N.Arrivo']]
+    for art in articoli:
+        quantita = art.pezzo or art.n_colli or '1'
+        n_arrivo = art.n_arrivo or ''
+        table_data.append([art.ordine or 'None', art.codice_articolo or '', art.descrizione or '', quantita, n_arrivo])
+    t = Table(table_data, colWidths=[2.5*cm, 4*cm, 7*cm, 2.5*cm, 2.5*cm])
+    t.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 1, colors.black), ('BACKGROUND', (0,0), (-1,0), colors.lightgrey), ('VALIGN', (0,0), (-1,-1), 'TOP'), ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold')]))
+    story.append(t)
+    story.append(Spacer(1, 3*cm))
+    story.append(Paragraph("Firma Magazzino: ________________________", style_body))
+    story.append(Spacer(1, 1*cm))
+    story.append(Paragraph("Firma Cliente: ________________________", style_body))
+    doc.build(story)
 
 def generate_ddt_pdf(buffer, ddt_data, articoli, destinatario_info):
-    # ... (Il codice di questa funzione rimane invariato)
-    pass
-    
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1*cm, bottomMargin=2.5*cm, leftMargin=1.5*cm, rightMargin=1.5*cm)
+    story = []
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(name='BodyText', parent=styles['Normal'], spaceBefore=3, spaceAfter=3, leading=12))
+    styles.add(ParagraphStyle(name='HeaderText', parent=styles['BodyText'], alignment=TA_LEFT))
+    logo_path = STATIC_FOLDER / 'logo camar.jpg'
+    logo = RLImage(logo_path, width=6*cm, height=3*cm) if logo_path.exists() else Spacer(0, 0)
+    mittente_text = """<b>CAMAR S.R.L.</b><br/>Via Luigi Canepa, 2<br/>16165 Genova (GE)<br/>P.IVA / C.F. 03429300101"""
+    mittente_p = Paragraph(mittente_text, styles['HeaderText'])
+    header_table = Table([[logo, mittente_p]], colWidths=[7*cm, 11*cm], style=[('VALIGN', (0,0), (-1,-1), 'TOP')])
+    story.append(header_table)
+    story.append(Spacer(1, 1*cm))
+    dest_rag_soc = destinatario_info.get('ragione_sociale', '')
+    dest_indirizzo = destinatario_info.get('indirizzo', '')
+    dest_piva = destinatario_info.get('piva', '')
+    destinatario_text = f"""<b>Spett.le</b><br/>{dest_rag_soc}<br/>{dest_indirizzo}<br/>P.IVA: {dest_piva}"""
+    destinatario_p = Paragraph(destinatario_text, styles['BodyText'])
+    data_uscita_str = ""
+    data_uscita_obj = parse_date_safe(ddt_data.get('data_uscita'))
+    if data_uscita_obj:
+        data_uscita_str = data_uscita_obj.strftime('%d/%m/%Y')
+    ddt_details_text = f"""<b>DOCUMENTO DI TRASPORTO</b><br/><b>DDT N°:</b> {ddt_data.get('n_ddt', 'N/A')}<br/><b>Data:</b> {data_uscita_str}<br/>"""
+    ddt_details_p = Paragraph(ddt_details_text, styles['BodyText'])
+    details_table = Table([[destinatario_p, ddt_details_p]], colWidths=[10*cm, 8*cm], style=[('VALIGN', (0,0), (-1,-1), 'TOP')])
+    story.append(details_table)
+    story.append(Spacer(1, 1*cm))
+    table_data = [['Descrizione della merce', 'Cod. Articolo', 'Commessa', 'Q.tà Colli', 'Peso Lordo Kg']]
+    total_colli = 0
+    total_peso = 0.0
+    for art in articoli:
+        table_data.append([
+            Paragraph(art.descrizione or '', styles['BodyText']),
+            Paragraph(art.codice_articolo or '', styles['BodyText']),
+            Paragraph(art.commessa or '', styles['BodyText']),
+            art.n_colli or 0,
+            art.peso or 0.0
+        ])
+        total_colli += art.n_colli or 0
+        total_peso += art.peso or 0.0
+    article_table = Table(table_data, colWidths=[7*cm, 3*cm, 3*cm, 2*cm, 3*cm])
+    article_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.lightgrey), ('GRID', (0,0), (-1,-1), 1, colors.black),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('ALIGN', (3,1), (-1,-1), 'CENTER'),
+    ]))
+    story.append(article_table)
+    story.append(Spacer(1, 0.5*cm))
+    causale = Paragraph(f"<b>Causale del trasporto:</b> {ddt_data.get('causale_trasporto', 'C/Lavorazione')}", styles['BodyText'])
+    story.append(causale)
+    story.append(Spacer(1, 1*cm))
+    summary_text = f"""<b>Aspetto dei beni:</b> {ddt_data.get('aspetto_beni', 'Scatole/Pallet')}<br/><b>Totale Colli:</b> {total_colli}<br/><b>Peso Totale Lordo Kg:</b> {total_peso:.2f}<br/>"""
+    summary_p = Paragraph(summary_text, styles['BodyText'])
+    story.append(summary_p)
+    story.append(Spacer(1, 2*cm))
+    signature_table = Table([
+        ['<b>Firma Vettore</b>', '<b>Firma Destinatario</b>'], [Spacer(1, 2*cm), Spacer(1, 2*cm)],
+        ['___________________', '___________________']
+    ], colWidths=[9*cm, 9*cm], style=[('ALIGN', (0,0), (-1,-1), 'CENTER')])
+    story.append(signature_table)
+    doc.build(story)
+
 def send_email_with_attachments(to_address, subject, body_html, attachments):
-    # ... (Il codice di questa funzione rimane invariato)
-    pass
+    smtp_host = os.environ.get("SMTP_HOST")
+    smtp_port = int(os.environ.get("SMTP_PORT", 587))
+    smtp_user = os.environ.get("SMTP_USER")
+    smtp_pass = os.environ.get("SMTP_PASS")
+    from_addr = os.environ.get("FROM_EMAIL", smtp_user)
+    if not all([smtp_host, smtp_port, smtp_user, smtp_pass, from_addr]):
+        raise ValueError("Configurazione SMTP incompleta.")
+    msg = EmailMessage()
+    msg["From"] = from_addr
+    msg["To"] = to_address
+    msg["Subject"] = subject
+    msg.set_content("Per visualizzare questo messaggio, è necessario un client di posta elettronica compatibile con HTML.")
+    msg.add_alternative(body_html, subtype='html')
+    for att_path, att_filename in attachments:
+        with open(att_path, 'rb') as f:
+            file_data = f.read()
+            ctype = 'application/octet-stream'
+            if att_filename.endswith('.pdf'): ctype = 'application/pdf'
+            elif att_filename.lower().endswith(('.jpg', '.jpeg')): ctype = 'image/jpeg'
+            elif att_filename.lower().endswith('.png'): ctype = 'image/png'
+            maintype, subtype = ctype.split('/', 1)
+            msg.add_attachment(file_data, maintype=maintype, subtype=subtype, filename=att_filename)
+    with smtplib.SMTP(smtp_host, port=smtp_port) as server:
+        server.starttls()
+        server.login(smtp_user, smtp_pass)
+        server.send_message(msg)
 
 # --- 6. ROTTE DELL'APPLICAZIONE ---
 @app.before_request
