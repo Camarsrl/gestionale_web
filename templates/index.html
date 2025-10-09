@@ -66,11 +66,11 @@
                     <tr>
                         <td onclick="event.stopPropagation();"><input type="checkbox" class="articolo-checkbox" value="{{ art.id }}"></td>
                         <td><a href="{{ url_for('edit_articolo', id=art.id) }}" class="btn btn-sm btn-outline-primary py-0 px-1" title="Modifica">Mod.</a></td>
-                        <td>{{ art.id }}</td><td>{{ art.codice_articolo }}</td><td>{{ art.descrizione }}</td>
-                        <td>{{ art.cliente }}</td><td>{{ art.fornitore }}</td><td>{{ art.commessa }}</td>
-                        <td>{{ art.ordine }}</td><td>{{ art.data_ingresso.strftime('%d/%m/%Y') if art.data_ingresso else '' }}</td>
-                        <td>{{ art.n_ddt_ingresso }}</td><td>{{ art.n_colli }}</td><td>{{ art.peso }}</td>
-                        <td>{{ art.posizione }}</td>
+                        <td>{{ art.id }}</td><td>{{ art.codice_articolo or '' }}</td><td>{{ art.descrizione or '' }}</td>
+                        <td>{{ art.cliente or '' }}</td><td>{{ art.fornitore or '' }}</td><td>{{ art.commessa or '' }}</td>
+                        <td>{{ art.ordine or '' }}</td><td>{{ art.data_ingresso.strftime('%d/%m/%Y') if art.data_ingresso else '' }}</td>
+                        <td>{{ art.n_ddt_ingresso or '' }}</td><td>{{ art.n_colli or '' }}</td><td>{{ art.peso or '' }}</td>
+                        <td>{{ art.posizione or '' }}</td>
                         <td><span class="badge bg-{{ 'success' if art.stato == 'In giacenza' else 'secondary' }}">{{ art.stato }}</span></td>
                         <td>{{ art.buono_n or '' }}</td><td>{{ art.n_ddt_uscita or '' }}</td>
                         <td>{{ art.data_uscita.strftime('%d/%m/%Y') if art.data_uscita else '' }}</td>
@@ -92,8 +92,45 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Funzioni JavaScript per gestire le selezioni e i pulsanti
-    // ... (il codice JavaScript che ti ho già fornito va qui)
+    document.getElementById('select-all').addEventListener('change', function(e) {
+        document.querySelectorAll('.articolo-checkbox').forEach(checkbox => {
+            checkbox.checked = e.target.checked;
+        });
+    });
+
+    function getSelectedIds() {
+        return Array.from(document.querySelectorAll('.articolo-checkbox:checked')).map(cb => cb.value).join(',');
+    }
+
+    function handleActionClick(url, needsOne = false) {
+        const ids = getSelectedIds();
+        if (!ids) {
+            alert('Nessun articolo selezionato.');
+            return;
+        }
+        if (needsOne && ids.split(',').length > 1) {
+            alert('Per questa operazione, seleziona un solo articolo.');
+            return;
+        }
+        window.location.href = url + '?ids=' + ids;
+    }
+
+    document.getElementById('btn-buono').addEventListener('click', () => handleActionClick('{{ url_for("buono_setup") }}'));
+    document.getElementById('btn-ddt').addEventListener('click', () => handleActionClick('{{ url_for("ddt_setup") }}'));
+    document.getElementById('btn-edit-multiple').addEventListener('click', () => handleActionClick('{{ url_for("edit_multiple") }}'));
+    document.getElementById('btn-duplicate').addEventListener('click', () => handleActionClick('{{ url_for("duplica_articolo") }}', true));
+    
+    document.getElementById('btn-delete-selected').addEventListener('click', function() {
+        const ids = getSelectedIds();
+        if (!ids) {
+            alert('Nessun articolo selezionato per l\'eliminazione.');
+            return;
+        }
+        if (confirm(`Sei sicuro di voler eliminare i ${ids.split(',').length} articoli selezionati? L\'azione è irreversibile.`)) {
+            document.getElementById('delete_ids_field').value = ids;
+            document.getElementById('bulk-delete-form').submit();
+        }
+    });
 });
 </script>
 {% endblock %}
