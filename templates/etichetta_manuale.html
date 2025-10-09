@@ -1,18 +1,22 @@
 {% extends "layout.html" %}
 {% block content %}
-<div class="card p-4 mx-auto" style="max-width: 600px;">
+<div class="card p-4 mx-auto" style="max-width: 700px;">
     <h3>Crea Etichetta</h3>
     <hr>
-    <form method="POST">
+    <form method="POST" action="{{ url_for('etichetta_preview') }}" target="_blank">
         <div class="row g-3">
-            <div class="col-12"><input type="text" name="cliente" class="form-control" placeholder="Cliente..." value="{{ articolo.cliente if articolo else '' }}"></div>
-            <div class="col-12"><input type="text" name="descrizione" class="form-control" placeholder="Descrizione..." value="{{ articolo.descrizione if articolo else '' }}"></div>
-            <div class="col-12"><input type="text" name="commessa" class="form-control" placeholder="Commessa..." value="{{ articolo.commessa if articolo else '' }}"></div>
-            <div class="col-12"><input type="text" name="id_articolo" class="form-control" placeholder="ID Articolo..." value="{{ articolo.id if articolo else '' }}"></div>
+            <div class="col-md-6"><label>N. Arrivo</label><input type="text" name="n_arrivo" class="form-control" value="{{ articolo.n_arrivo or '' }}"></div>
+            <div class="col-md-6"><label>Cliente</label><input type="text" name="cliente" class="form-control" value="{{ articolo.cliente or '' }}"></div>
+            <div class="col-md-6"><label>Fornitore</label><input type="text" name="fornitore" class="form-control" value="{{ articolo.fornitore or '' }}"></div>
+            <div class="col-md-6"><label>DDT Ingresso</label><input type="text" name="n_ddt_ingresso" class="form-control" value="{{ articolo.n_ddt_ingresso or '' }}"></div>
+            <div class="col-md-6"><label>Data</label><input type="text" name="data_ingresso" class="form-control" value="{{ articolo.data_ingresso.strftime('%d/%m/%Y') if articolo and articolo.data_ingresso else '' }}"></div>
+            <div class="col-md-6"><label>Ordine</label><input type="text" name="ordine" class="form-control" value="{{ articolo.ordine or '' }}"></div>
+            <div class="col-md-6"><label>Commessa</label><input type="text" name="commessa" class="form-control" value="{{ articolo.commessa or '' }}"></div>
+            <div class="col-md-6"><label>N. Colli</label><input type="text" name="n_colli" class="form-control" value="{{ articolo.n_colli or '' }}"></div>
+            <div class="col-md-6"><label>Posizione</label><input type="text" name="posizione" class="form-control" value="{{ articolo.posizione or '' }}"></div>
         </div>
         <div class="mt-4">
-            <button type="submit" class="btn btn-primary" formaction="{{ url_for('etichetta_manuale') }}">Genera e Scarica</button>
-            <button type="submit" class="btn btn-info" formaction="{{ url_for('etichetta_preview') }}" formtarget="_blank">Anteprima</button>
+            <button type="submit" class="btn btn-primary">Visualizza Anteprima</button>
             <a href="{{ url_for('main_menu') }}" class="btn btn-secondary">Annulla</a>
         </div>
     </form>
