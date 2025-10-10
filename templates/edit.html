@@ -5,6 +5,7 @@
     <h3>{{ title }}</h3>
     <hr>
     <form method="post" enctype="multipart/form-data">
+        
         <h5 class="mt-3">Dati Principali</h5>
         <div class="row g-3">
             <div class="col-md-4">
@@ -25,28 +26,51 @@
             </div>
         </div>
 
+        <h5 class="mt-4">Dati Ingresso</h5>
+        <div class="row g-3">
+            <div class="col-md-3"><label class="form-label">Data Ingresso</label><input type="date" class="form-control" name="data_ingresso" value="{{ articolo.data_ingresso.isoformat() if articolo and articolo.data_ingresso else '' }}"></div>
+            <div class="col-md-3"><label class="form-label">N. DDT Ingresso</label><input type="text" class="form-control" name="n_ddt_ingresso" value="{{ articolo.n_ddt_ingresso if articolo else '' }}"></div>
+            <div class="col-md-3"><label class="form-label">Commessa</label><input type="text" class="form-control" name="commessa" value="{{ articolo.commessa if articolo else '' }}"></div>
+            <div class="col-md-3"><label class="form-label">Ordine</label><input type="text" class="form-control" name="ordine" value="{{ articolo.ordine if articolo else '' }}"></div>
+        </div>
+
         <h5 class="mt-4">Dati Logistici</h5>
         <div class="row g-3">
-            <div class="col-md-3">
-                <label for="n_colli" class="form-label">Numero Colli</label>
-                <input type="number" class="form-control" id="n_colli" name="n_colli" value="{{ articolo.n_colli if articolo else '' }}">
+            <div class="col-md-2"><label class="form-label">N. Colli</label><input type="number" class="form-control" name="n_colli" value="{{ articolo.n_colli if articolo else '' }}"></div>
+            <div class="col-md-2"><label class="form-label">Peso (Kg)</label><input type="text" class="form-control" name="peso" value="{{ articolo.peso if articolo else '' }}"></div>
+            <div class="col-md-2"><label class="form-label">Lung. (m)</label><input type="text" class="form-control" name="lunghezza" value="{{ articolo.lunghezza if articolo else '' }}"></div>
+            <div class="col-md-2"><label class="form-label">Largh. (m)</label><input type="text" class="form-control" name="larghezza" value="{{ articolo.larghezza if articolo else '' }}"></div>
+            <div class="col-md-2"><label class="form-label">Altezza (m)</label><input type="text" class="form-control" name="altezza" value="{{ articolo.altezza if articolo else '' }}"></div>
+            <div class="col-md-2"><label class="form-label">Posizione</label><input type="text" class="form-control" name="posizione" value="{{ articolo.posizione if articolo else '' }}"></div>
+        </div>
+
+        <h5 class="mt-4">Attributi Speciali</h5>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label for="tipo_magazzino" class="form-label">Tipo Magazzino</label>
+                <select name="tipo_magazzino" id="tipo_magazzino" class="form-select">
+                    <option value="" {% if not articolo or not articolo.tipo_magazzino %}selected{% endif %}>-- Nessuno --</option>
+                    <option value="Coperto" {% if articolo and articolo.tipo_magazzino == 'Coperto' %}selected{% endif %}>Coperto</option>
+                    <option value="Scoperto" {% if articolo and articolo.tipo_magazzino == 'Scoperto' %}selected{% endif %}>Scoperto</option>
+                </select>
             </div>
-            <div class="col-md-3">
-                <label for="peso" class="form-label">Peso (Kg)</label>
-                <input type="text" class="form-control" id="peso" name="peso" value="{{ articolo.peso if articolo else '' }}">
+            <div class="col-md-4 d-flex align-items-end">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="dogana" id="dogana" value="1" {% if articolo and articolo.dogana %}checked{% endif %}>
+                    <label class="form-check-label" for="dogana">Merce Doganale</label>
+                </div>
             </div>
-            <div class="col-md-2">
-                <label for="lunghezza" class="form-label">Lunghezza (m)</label>
-                <input type="text" class="form-control" id="lunghezza" name="lunghezza" value="{{ articolo.lunghezza if articolo else '' }}">
+            <div class="col-md-4 d-flex align-items-end">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="pericoloso" id="pericoloso" value="1" {% if articolo and articolo.pericoloso %}checked{% endif %}>
+                    <label class="form-check-label" for="pericoloso">Merce Pericolosa (ADR)</label>
+                </div>
             </div>
-            <div class="col-md-2">
-                <label for="larghezza" class="form-label">Larghezza (m)</label>
-                <input type="text" class="form-control" id="larghezza" name="larghezza" value="{{ articolo.larghezza if articolo else '' }}">
-            </div>
-             <div class="col-md-2">
-                <label for="altezza" class="form-label">Altezza (m)</label>
-                <input type="text" class="form-control" id="altezza" name="altezza" value="{{ articolo.altezza if articolo else '' }}">
-            </div>
+        </div>
+
+        <h5 class="mt-4">Altri Dati</h5>
+        <div class="row g-3">
+             <div class="col-md-12"><label class="form-label">Note</label><textarea class="form-control" name="note" rows="2">{{ articolo.note if articolo else '' }}</textarea></div>
         </div>
         
         {% if articolo %}
