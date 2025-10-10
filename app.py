@@ -168,6 +168,16 @@ def main_menu():
         return redirect(url_for('login'))
     return render_template('main_menu.html')
 
+@app.route('/calcolo-costi')
+def calcolo_costi():
+    # Questa è una pagina temporanea, come richiesto.
+    # In futuro potremo sviluppare qui la logica dei calcoli.
+    return """
+        <h1>Calcolo Costi</h1>
+        <p>Questa sezione è in fase di sviluppo.</p>
+        <a href="/">Torna al menu principale</a>
+    """
+
 @app.route('/giacenze')
 def visualizza_giacenze():
     if 'user' not in session:
