@@ -104,6 +104,16 @@ def to_float_safe(val):
 def to_int_safe(val):
     f_val = to_float_safe(val)
     return int(f_val) if f_val is not None else None
+  
+  @app.route('/calcolo-costi')
+def calcolo_costi():
+    # Questa è una pagina temporanea, come richiesto.
+    # In futuro potremo sviluppare qui la logica dei calcoli.
+    return """
+        <h1>Calcolo Costi</h1>
+        <p>Questa sezione è in fase di sviluppo.</p>
+        <a href="/">Torna al menu principale</a>
+    """
 
 def parse_date_safe(date_string):
     if not date_string: return None
