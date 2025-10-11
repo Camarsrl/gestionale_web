@@ -254,6 +254,7 @@ def check_login():
     if 'user' not in session and request.endpoint not in ['login', 'static', 'main_menu']:
         return redirect(url_for('login'))
 
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
