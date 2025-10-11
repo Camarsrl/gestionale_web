@@ -167,7 +167,7 @@ def main_menu():
     if 'user' not in session:
         return redirect(url_for('login'))
     return render_template('main_menu.html')
-
+    
 @app.route('/calcolo-costi')
 def calcolo_costi():
     return """
