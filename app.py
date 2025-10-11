@@ -5,14 +5,15 @@ import os
 import shutil
 import json
 import logging
+import calendar  # <-- IMPORT MANCANTE AGGIUNTO
+import smtplib   # <-- IMPORT MANCANTE AGGIUNTO
+from email.message import EmailMessage  # <-- IMPORT MANCANTE AGGIUNTO
 from datetime import datetime, date
 from pathlib import Path
 import io
-from copy import deepcopy
 from flask import (Flask, request, redirect, url_for, render_template,
                    flash, send_from_directory, abort, session, jsonify, send_file)
 from flask_sqlalchemy import SQLAlchemy
-from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 import pandas as pd
 from reportlab.lib.pagesizes import A4
@@ -41,11 +42,9 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 ALLOWED_EXTENSIONS = {'pdf', 'jpg', 'jpeg', 'png', 'xlsx', 'xls', 'xlsm'}
 db = SQLAlchemy(app)
 
-# ========== AGGIUNTA LA FUNZIONE MANCANTE QUI ==========
 @app.context_processor
 def inject_now():
     return {'now': datetime.utcnow}
-# =======================================================
 
 @app.context_processor
 def inject_logo_url():
@@ -257,9 +256,8 @@ def send_email_with_attachments(to_address, subject, body_html, attachments):
 # --- 6. ROTTE DELL'APPLICAZIONE ---
 @app.before_request
 def check_login():
-    if 'user' not in session and request.endpoint not in ['login', 'static', 'main_menu']:
+    if 'user' not in session and request.endpoint not in ['login', 'static']:
         return redirect(url_for('login'))
-
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -289,13 +287,10 @@ def main_menu():
 
 @app.route('/giacenze')
 def visualizza_giacenze():
-    if 'user' not in session:
-        return redirect(url_for('login'))
-        
     query = Articolo.query
     if session.get('role') == 'client':
         query = query.filter(Articolo.cliente.ilike(session['user']))
-    
+
     filters = {k: v for k, v in request.args.items() if v}
     if filters:
         for key, value in filters.items():
@@ -308,12 +303,12 @@ def visualizza_giacenze():
                         if key == 'data_uscita_da': query = query.filter(Articolo.data_uscita >= date_val)
                         if key == 'data_uscita_a': query = query.filter(Articolo.data_uscita <= date_val)
                 elif key == 'id':
-                     query = query.filter(Articolo.id == value)
+                    query = query.filter(Articolo.id == value)
                 else:
                     query = query.filter(getattr(Articolo, key).ilike(f"%{value}%"))
 
     articoli = query.order_by(Articolo.id.desc()).all()
-    
+
     totali = { 'colli': 0, 'peso': 0.0, 'm2': 0.0, 'm3': 0.0 }
     articoli_in_giacenza = [art for art in articoli if not art.n_ddt_uscita]
     for art in articoli_in_giacenza:
@@ -336,7 +331,7 @@ def populate_articolo_from_form(articolo, form):
                 setattr(articolo, col.name, to_int_safe(value))
             else:
                 setattr(articolo, col.name, value if value else None)
-    
+
     if any(k in form for k in ['lunghezza', 'larghezza', 'altezza', 'n_colli']):
         articolo.m2, articolo.m3 = calculate_m2_m3(form)
     return articolo
@@ -385,7 +380,7 @@ def delete_attachment(id):
     allegato = Allegato.query.get_or_404(id)
     try:
         os.remove(os.path.join(app.config['UPLOAD_FOLDER'], allegato.filename))
-    except OSError: pass 
+    except OSError: pass
     db.session.delete(allegato)
     db.session.commit()
     flash('Allegato eliminato.', 'success')
@@ -427,14 +422,14 @@ def import_excel():
             logging.error(f"Errore import: {e}", exc_info=True)
             return redirect(request.url)
     return render_template('import.html', profiles=profiles.keys())
-    
+
 @app.route('/export')
 def export_excel():
     ids_str = request.args.get('ids')
     query = Articolo.query
     if session.get('role') == 'client':
         query = query.filter(Articolo.cliente.ilike(session['user']))
-    
+
     filters = {k: v for k, v in request.args.items() if v and k != 'ids'}
     if filters:
         for key, value in filters.items():
@@ -447,7 +442,7 @@ def export_excel():
                         if key == 'data_uscita_da': query = query.filter(Articolo.data_uscita >= date_val)
                         if key == 'data_uscita_a': query = query.filter(Articolo.data_uscita <= date_val)
                 elif key == 'id':
-                     query = query.filter(Articolo.id == value)
+                    query = query.filter(Articolo.id == value)
                 else:
                     query = query.filter(getattr(Articolo, key).ilike(f"%{value}%"))
 
@@ -458,12 +453,12 @@ def export_excel():
         except ValueError:
             flash('ID per esportazione non validi.', 'warning')
             return redirect(url_for('visualizza_giacenze'))
-            
+
     articoli = query.order_by(Articolo.id.asc()).all()
     if not articoli:
         flash('Nessun articolo da esportare per i criteri selezionati.', 'info')
         return redirect(url_for('visualizza_giacenze'))
-        
+
     data = []
     for art in articoli:
         art_data = {c.name: getattr(art, c.name) for c in art.__table__.columns}
@@ -485,7 +480,7 @@ def export_by_client():
         if not cliente_selezionato:
             flash("Nessun cliente selezionato.", "warning")
             return redirect(url_for('export_by_client'))
-        
+
         articoli = Articolo.query.filter_by(cliente=cliente_selezionato).all()
         if not articoli:
             flash(f"Nessun articolo trovato per il cliente {cliente_selezionato}.", "info")
@@ -500,7 +495,7 @@ def export_by_client():
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             df.to_excel(writer, index=False, sheet_name=cliente_selezionato)
         output.seek(0)
-        
+
         return send_file(output, as_attachment=True, download_name=f'export_{cliente_selezionato}.xlsx', mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
     clienti = db.session.query(Articolo.cliente).distinct().order_by(Articolo.cliente).all()
@@ -570,7 +565,7 @@ def ddt_setup():
     destinatari = {}
     if dest_path.exists():
         try:
-            with open(dest_path, 'r', encoding='utf-8') as f: 
+            with open(dest_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
                 if isinstance(data, dict): destinatari = data
         except (json.JSONDecodeError, IOError): pass
@@ -606,7 +601,7 @@ def ddt_preview():
     destinatari = {}
     if dest_path.exists():
         try:
-            with open(dest_path, 'r', encoding='utf-8') as f: 
+            with open(dest_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
                 if isinstance(data, dict): destinatari = data
         except (json.JSONDecodeError, IOError): pass
@@ -716,7 +711,7 @@ def gestione_destinatari():
     dest_path = CONFIG_FOLDER / 'destinatari_saved.json'
     destinatari = {}
     try:
-        with open(dest_path, 'r', encoding='utf-8') as f: 
+        with open(dest_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
             if isinstance(data, dict): destinatari = data
     except (FileNotFoundError, json.JSONDecodeError): pass
@@ -739,6 +734,7 @@ def gestione_destinatari():
         with open(dest_path, 'w', encoding='utf-8') as f: json.dump(destinatari, f, indent=4, ensure_ascii=False)
         return redirect(url_for('gestione_destinatari'))
     return render_template('destinatari.html', destinatari=destinatari)
+
 @app.route('/report', methods=['GET', 'POST'])
 def report():
     if session.get('role') != 'admin': abort(403)
@@ -769,6 +765,7 @@ def report():
 @app.route('/calcolo-costi')
 def calcolo_costi():
     return redirect(url_for('report'))
+
 @app.route('/api/attachments')
 def get_attachments():
     ids_str = request.args.get('ids', '')
