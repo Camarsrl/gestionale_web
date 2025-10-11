@@ -41,6 +41,12 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 ALLOWED_EXTENSIONS = {'pdf', 'jpg', 'jpeg', 'png', 'xlsx', 'xls', 'xlsm'}
 db = SQLAlchemy(app)
 
+# ========== AGGIUNTA LA FUNZIONE MANCANTE QUI ==========
+@app.context_processor
+def inject_now():
+    return {'now': datetime.utcnow}
+# =======================================================
+
 @app.context_processor
 def inject_logo_url():
     logo_filename = 'logo camar.jpg'
