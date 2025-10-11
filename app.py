@@ -732,15 +732,36 @@ def gestione_destinatari():
         with open(dest_path, 'w', encoding='utf-8') as f: json.dump(destinatari, f, indent=4, ensure_ascii=False)
         return redirect(url_for('gestione_destinatari'))
     return render_template('destinatari.html', destinatari=destinatari)
-    @app.route('/calcolo-costi')
+@app.route('/report', methods=['GET', 'POST'])
+def report():
+    if session.get('role') != 'admin': abort(403)
+    risultato = None
+    if request.method == 'POST':
+        cliente = request.form.get('cliente')
+        mese_anno = request.form.get('mese_anno')
+        if cliente and mese_anno:
+            try:
+                anno, mese = map(int, mese_anno.split('-'))
+                ultimo_giorno = calendar.monthrange(anno, mese)[1]
+                fine_mese = date(anno, mese, ultimo_giorno)
+                articoli_in_giacenza = Articolo.query.filter(
+                    Articolo.cliente == cliente,
+                    Articolo.data_ingresso <= fine_mese,
+                    (Articolo.data_uscita == None) | (Articolo.data_uscita > fine_mese)
+                ).all()
+                m2_totali = sum(art.m2 or 0 for art in articoli_in_giacenza)
+                risultato = {
+                    "cliente": cliente, "periodo": f"{mese:02d}-{anno}",
+                    "m2_totali": round(m2_totali, 3), "conteggio_articoli": len(articoli_in_giacenza)
+                }
+            except ValueError:
+                flash("Formato data non valido.", "danger")
+    clienti = db.session.query(Articolo.cliente).distinct().order_by(Articolo.cliente).all()
+    return render_template('report.html', clienti=[c[0] for c in clienti if c[0]], risultato=risultato)
+
+@app.route('/calcolo-costi')
 def calcolo_costi():
-    # Questa è una pagina temporanea, come richiesto.
-    # In futuro potremo sviluppare qui la logica dei calcoli.
-    return """
-        <h1>Calcolo Costi</h1>
-        <p>Questa sezione è in fase di sviluppo.</p>
-        <a href="/">Torna al menu principale</a>
-    """
+    return redirect(url_for('report'))
 @app.route('/api/attachments')
 def get_attachments():
     ids_str = request.args.get('ids', '')
