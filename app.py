@@ -5,9 +5,9 @@ import os
 import shutil
 import json
 import logging
-import calendar  # <-- IMPORT MANCANTE AGGIUNTO
-import smtplib   # <-- IMPORT MANCANTE AGGIUNTO
-from email.message import EmailMessage  # <-- IMPORT MANCANTE AGGIUNTO
+import calendar
+import smtplib
+from email.message import EmailMessage
 from datetime import datetime, date
 from pathlib import Path
 import io
@@ -548,6 +548,39 @@ def buono_preview():
     buffer.seek(0)
     return send_file(buffer, as_attachment=False, download_name='Anteprima_Buono.pdf', mimetype='application/pdf')
 
+# ========= INIZIO CODICE AGGIUNTO PER ERRORE DDT =========
+def next_ddt_number():
+    """Calcola il prossimo numero di DDT per l'anno corrente."""
+    prog_file = CONFIG_FOLDER / "progressivi_ddt.json"
+    year_short = date.today().strftime("%y")
+    progressivi = {}
+    if prog_file.exists():
+        try:
+            with open(prog_file, 'r') as f:
+                progressivi = json.load(f)
+        except (IOError, json.JSONDecodeError):
+            progressivi = {}
+    
+    last_num = progressivi.get(year_short, 0)
+    next_num = last_num + 1
+    progressivi[year_short] = next_num
+    
+    try:
+        with open(prog_file, 'w') as f:
+            json.dump(progressivi, f)
+    except IOError:
+        logging.error("Impossibile salvare il file dei progressivi DDT.")
+
+    return f"{next_num}/{year_short}"
+
+@app.route('/api/get_next_ddt_number')
+def get_next_ddt_number():
+    """Endpoint API per fornire il prossimo numero DDT al frontend."""
+    if session.get('role') != 'admin':
+        abort(403)
+    return jsonify({'next_ddt': next_ddt_number()})
+# ========= FINE CODICE AGGIUNTO PER ERRORE DDT =========
+
 @app.route('/ddt/setup', methods=['GET', 'POST'])
 def ddt_setup():
     if session.get('role') != 'admin': abort(403)
@@ -626,15 +659,23 @@ def etichetta_manuale():
 @app.route('/etichetta/preview', methods=['POST'])
 def etichetta_preview():
     if session.get('role') != 'admin': abort(403)
-    data = request.form.to_dict()
+    
+    # ========= INIZIO CODICE MODIFICATO PER ERRORE ETICHETTA =========
+    # Tronca i dati per evitare che siano troppo lunghi e usa un font più piccolo
+    form_data = request.form.to_dict()
+    data_trunc = {k: (v[:35] + '...' if len(v) > 35 else v) for k, v in form_data.items()}
+    
     buffer = io.BytesIO()
     styles = getSampleStyleSheet()
-    styleN = ParagraphStyle(name='Normal', parent=styles['Normal'], fontSize=9, leading=11)
+    # Usa un font più piccolo e un'interlinea ridotta per far stare più testo
+    styleN = ParagraphStyle(name='Normal', parent=styles['Normal'], fontSize=8, leading=10)
     doc = SimpleDocTemplate(buffer, pagesize=(100*mm, 62*mm), margins=(5*mm, 5*mm, 5*mm, 5*mm))
     testo_etichetta = []
-    for key, value in data.items():
+    for key, value in data_trunc.items():
         if value:
             testo_etichetta.append(f"<b>{key.replace('_', ' ').title()}:</b> {value}")
+    # ========= FINE CODICE MODIFICATO PER ERRORE ETICHETTA =========
+
     full_text = "<br/>".join(testo_etichetta)
     story = [Paragraph(full_text, styleN)]
     try:
