@@ -16,7 +16,7 @@ from flask import (Flask, request, redirect, url_for, render_template,
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.utils import secure_filename
 import pandas as pd
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, landscape
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
@@ -628,7 +628,6 @@ def ddt_setup():
         articoli = [art for art in articoli if not (art.stato and art.stato.lower() == 'uscito')]
         ids_str = ','.join(map(str, [art.id for art in articoli]))
         if not articoli: 
-            # Se tutti gli articoli selezionati sono già usciti, non mostrare la pagina di creazione
             return redirect(url_for('visualizza_giacenze'))
 
     dest_path = CONFIG_FOLDER / 'destinatari_saved.json'
@@ -704,42 +703,61 @@ def etichetta_manuale():
         articolo_selezionato = Articolo.query.get(first_id)
     return render_template('etichetta_manuale.html', articolo=articolo_selezionato)
 
-# ========= INIZIO CODICE MODIFICATO PER ETICHETTE ADATTABILI =========
+# ========= INIZIO CODICE MODIFICATO PER ETICHETTA SU PAGINA SINGOLA =========
 @app.route('/etichetta/preview', methods=['POST'])
 def etichetta_preview():
     if session.get('role') != 'admin': abort(403)
     
-    form_data = request.form.to_dict()
-    # Tronca i dati per evitare che siano troppo lunghi
-    data_trunc = {k: (v[:25] + '...' if len(v) > 25 else v) if isinstance(v, str) else v for k, v in form_data.items()}
-    
     buffer = io.BytesIO()
+    # Usa landscape per il formato orizzontale in modo esplicito
+    doc = SimpleDocTemplate(buffer, pagesize=landscape((100*mm, 62*mm)), 
+                            leftMargin=5*mm, rightMargin=5*mm, topMargin=5*mm, bottomMargin=5*mm)
+    
     styles = getSampleStyleSheet()
-    # Usa un font più piccolo e un'interlinea ridotta per far stare più testo
-    styleN = ParagraphStyle(name='Normal', parent=styles['Normal'], fontSize=7, leading=9)
-    doc = SimpleDocTemplate(buffer, pagesize=(100*mm, 62*mm), margins=(4*mm, 4*mm, 4*mm, 4*mm))
-    testo_etichetta = []
-    
-    # Ordine dei campi per l'etichetta
-    campi_ordinati = ['cliente', 'fornitore', 'ordine', 'commessa', 'n_ddt_ingresso', 'data_ingresso', 'n_arrivo', 'posizione', 'n_colli', 'protocollo']
-    
-    for key in campi_ordinati:
-        value = data_trunc.get(key)
-        if value:
-            label = key.replace('_', ' ').replace('n ', 'N. ').title()
-            testo_etichetta.append(f"<b>{label}:</b> {value}")
+    # Stile con font piccolo e interlinea ridotta per massimizzare lo spazio
+    styleN = ParagraphStyle(name='NormalSmall', parent=styles['Normal'], fontSize=8, leading=10, spaceAfter=1)
 
-    full_text = "<br/>".join(testo_etichetta)
-    story = [Paragraph(full_text, styleN)]
+    form_data = request.form.to_dict()
+    
+    # Lista di dati per la tabella, ogni riga è una coppia [etichetta, valore]
+    label_data = []
+    campi_ordinati = ['cliente', 'fornitore', 'ordine', 'commessa', 'n_ddt_ingresso', 'data_ingresso', 'n_arrivo', 'posizione', 'n_colli', 'protocollo']
+
+    for key in campi_ordinati:
+        value = form_data.get(key)
+        if value and str(value).strip():
+            # Tronca il valore se troppo lungo per sicurezza
+            value_str = str(value)
+            value_display = (value_str[:40] + '...') if len(value_str) > 40 else value_str
+            
+            label_text = key.replace('_', ' ').replace('n ', 'N. ').title()
+            label_p = Paragraph(f"<b>{label_text}:</b>", styleN)
+            value_p = Paragraph(value_display, styleN)
+            label_data.append([label_p, value_p])
+
+    if not label_data:
+        return "Nessun dato da stampare.", 400
+
+    # Crea la tabella con due colonne
+    table = Table(label_data, colWidths=[3*cm, 6*cm])
+    table.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('LEFTPADDING', (0,0), (-1,-1), 0),
+        ('RIGHTPADDING', (0,0), (-1,-1), 0),
+        ('TOPPADDING', (0,0), (-1,-1), 1),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+    ]))
+
     try:
-        doc.build(story)
+        # Costruisci il PDF con la tabella come unico elemento
+        doc.build([table])
     except Exception as e:
-        logging.error(f"Errore generazione etichetta: {e}")
-        # Se ancora non basta, è un caso estremo
+        logging.error(f"Errore generazione etichetta con tabella: {e}")
         return "Errore: il testo è ancora troppo lungo per entrare nell'etichetta.", 400
+        
     buffer.seek(0)
     return send_file(buffer, as_attachment=False, download_name='Anteprima_Etichetta.pdf', mimetype='application/pdf')
-# ========= FINE CODICE MODIFICATO PER ETICHETTE ADATTABILI =========
+# ========= FINE CODICE MODIFICATO =========
 
 
 @app.route('/articolo/duplica')
