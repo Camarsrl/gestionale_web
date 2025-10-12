@@ -160,7 +160,6 @@ def generate_buono_prelievo_pdf(buffer, dati_buono, articoli):
     for art in articoli:
         quantita = art.pezzo or art.n_colli or '1'
         n_arrivo = art.n_arrivo or ''
-        # ========= INIZIO CODICE MODIFICATO PER PDF WRAP =========
         table_data.append([
             Paragraph(art.ordine or 'None', body_style),
             Paragraph(art.codice_articolo or '', body_style),
@@ -168,7 +167,6 @@ def generate_buono_prelievo_pdf(buffer, dati_buono, articoli):
             Paragraph(str(quantita), body_style),
             Paragraph(n_arrivo, body_style)
         ])
-        # ========= FINE CODICE MODIFICATO PER PDF WRAP =========
         
     full_table_data = table_header + table_data
     t = Table(full_table_data, colWidths=[2.5*cm, 4*cm, 7*cm, 2.5*cm, 2.5*cm])
@@ -188,10 +186,9 @@ def generate_ddt_pdf(buffer, ddt_data, articoli, destinatario_info):
     doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1*cm, bottomMargin=2.5*cm, leftMargin=1.5*cm, rightMargin=1.5*cm)
     story = []
     styles = getSampleStyleSheet()
-    body_style = styles['BodyText']
-    body_style.fontSize = 8
-    styles.add(ParagraphStyle(name='BodyText', parent=styles['Normal'], spaceBefore=3, spaceAfter=3, leading=12))
-    styles.add(ParagraphStyle(name='HeaderText', parent=styles['BodyText'], alignment=TA_LEFT))
+    body_style = ParagraphStyle(name='BodyWrap', parent=styles['Normal'], fontSize=8, leading=10)
+    
+    styles.add(ParagraphStyle(name='HeaderText', parent=styles['Normal'], alignment=TA_LEFT, leading=12))
     logo_path = STATIC_FOLDER / 'logo camar.jpg'
     logo = RLImage(logo_path, width=6*cm, height=3*cm) if logo_path.exists() else Spacer(0, 0)
     mittente_text = """<b>CAMAR S.R.L.</b><br/>Via Luigi Canepa, 2<br/>16165 Genova (GE)<br/>P.IVA / C.F. 03429300101"""
@@ -199,20 +196,23 @@ def generate_ddt_pdf(buffer, ddt_data, articoli, destinatario_info):
     header_table = Table([[logo, mittente_p]], colWidths=[7*cm, 11*cm], style=[('VALIGN', (0,0), (-1,-1), 'TOP')])
     story.append(header_table)
     story.append(Spacer(1, 1*cm))
+    
     dest_rag_soc = destinatario_info.get('ragione_sociale', '')
     dest_indirizzo = destinatario_info.get('indirizzo', '')
     dest_piva = destinatario_info.get('piva', '')
     destinatario_text = f"""<b>Spett.le</b><br/>{dest_rag_soc}<br/>{dest_indirizzo}<br/>P.IVA: {dest_piva}"""
-    destinatario_p = Paragraph(destinatario_text, styles['BodyText'])
+    destinatario_p = Paragraph(destinatario_text, styles['HeaderText'])
+    
     data_uscita_str = ""
     data_uscita_obj = parse_date_safe(ddt_data.get('data_uscita'))
     if data_uscita_obj:
         data_uscita_str = data_uscita_obj.strftime('%d/%m/%Y')
     ddt_details_text = f"""<b>DOCUMENTO DI TRASPORTO</b><br/><b>DDT N°:</b> {ddt_data.get('n_ddt', 'N/A')}<br/><b>Data:</b> {data_uscita_str}<br/>"""
-    ddt_details_p = Paragraph(ddt_details_text, styles['BodyText'])
+    ddt_details_p = Paragraph(ddt_details_text, styles['HeaderText'])
     details_table = Table([[destinatario_p, ddt_details_p]], colWidths=[10*cm, 8*cm], style=[('VALIGN', (0,0), (-1,-1), 'TOP')])
     story.append(details_table)
     story.append(Spacer(1, 1*cm))
+    
     table_data_header = [['Descrizione della merce', 'Cod. Articolo', 'Commessa', 'Q.tà Colli', 'Peso Lordo Kg']]
     table_data_rows = []
     total_colli = 0
@@ -237,11 +237,13 @@ def generate_ddt_pdf(buffer, ddt_data, articoli, destinatario_info):
     ]))
     story.append(article_table)
     story.append(Spacer(1, 0.5*cm))
-    causale = Paragraph(f"<b>Causale del trasporto:</b> {ddt_data.get('causale_trasporto', 'C/Lavorazione')}", styles['BodyText'])
+    
+    body_text_style = styles['Normal']
+    causale = Paragraph(f"<b>Causale del trasporto:</b> {ddt_data.get('causale_trasporto', 'C/Lavorazione')}", body_text_style)
     story.append(causale)
     story.append(Spacer(1, 1*cm))
     summary_text = f"""<b>Aspetto dei beni:</b> {ddt_data.get('aspetto_beni', 'Scatole/Pallet')}<br/><b>Totale Colli:</b> {total_colli}<br/><b>Peso Totale Lordo Kg:</b> {total_peso:.2f}<br/>"""
-    summary_p = Paragraph(summary_text, styles['BodyText'])
+    summary_p = Paragraph(summary_text, body_text_style)
     story.append(summary_p)
     story.append(Spacer(1, 2*cm))
     signature_table = Table([
@@ -329,14 +331,17 @@ def visualizza_giacenze():
                         if key == 'data_uscita_da': query = query.filter(Articolo.data_uscita >= date_val)
                         if key == 'data_uscita_a': query = query.filter(Articolo.data_uscita <= date_val)
                 elif key == 'id':
-                    query = query.filter(Articolo.id == value)
+                    try:
+                        query = query.filter(Articolo.id == int(value))
+                    except ValueError:
+                        pass # ignora se l'ID non è un numero
                 else:
                     query = query.filter(getattr(Articolo, key).ilike(f"%{value}%"))
 
     articoli = query.order_by(Articolo.id.desc()).all()
 
     totali = { 'colli': 0, 'peso': 0.0, 'm2': 0.0, 'm3': 0.0 }
-    articoli_in_giacenza = [art for art in articoli if not art.n_ddt_uscita]
+    articoli_in_giacenza = [art for art in articoli if not art.stato or art.stato.lower() != 'uscito']
     for art in articoli_in_giacenza:
         totali['colli'] += art.n_colli or 0
         totali['peso'] += art.peso or 0.0
@@ -358,13 +363,13 @@ def populate_articolo_from_form(articolo, form):
             else:
                 setattr(articolo, col.name, value if value else None)
 
-    if any(k in request.form for k in ['lunghezza', 'larghezza', 'altezza', 'n_colli']):
-         # Ricrea un dizionario per il calcolo, perché 'form' potrebbe non essere un dizionario
+    # Calcola m2 e m3 solo se i campi necessari sono nel form
+    if any(k in form for k in ['lunghezza', 'larghezza', 'altezza', 'n_colli']):
         calc_data = {
-            'lunghezza': request.form.get('lunghezza'),
-            'larghezza': request.form.get('larghezza'),
-            'altezza': request.form.get('altezza'),
-            'n_colli': request.form.get('n_colli')
+            'lunghezza': form.get('lunghezza'),
+            'larghezza': form.get('larghezza'),
+            'altezza': form.get('altezza'),
+            'n_colli': form.get('n_colli')
         }
         articolo.m2, articolo.m3 = calculate_m2_m3(calc_data)
         
@@ -602,9 +607,7 @@ def next_ddt_number():
             json.dump(progressivi, f)
     except IOError:
         logging.error("Impossibile salvare il file dei progressivi DDT.")
-    # ========= INIZIO CODICE MODIFICATO PER FORMATO DDT =========
-    return f"{next_num:03d}/{year_short}" # Es: 001/25
-    # ========= FINE CODICE MODIFICATO PER FORMATO DDT =========
+    return f"{next_num:03d}/{year_short}"
 
 @app.route('/api/get_next_ddt_number')
 def get_next_ddt_number():
@@ -619,12 +622,15 @@ def ddt_setup():
     if not ids_str: return redirect(url_for('visualizza_giacenze'))
     ids = [int(i) for i in ids_str.split(',')]
     articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
-    articoli_gia_usciti = [art.id for art in articoli if art.n_ddt_uscita]
+    articoli_gia_usciti = [art.id for art in articoli if art.stato and art.stato.lower() == 'uscito']
     if articoli_gia_usciti:
         flash(f"Attenzione: Gli articoli ID {articoli_gia_usciti} risultano già spediti.", "warning")
-        articoli = [art for art in articoli if not art.n_ddt_uscita]
+        articoli = [art for art in articoli if not (art.stato and art.stato.lower() == 'uscito')]
         ids_str = ','.join(map(str, [art.id for art in articoli]))
-        if not articoli: return redirect(url_for('visualizza_giacenze'))
+        if not articoli: 
+            # Se tutti gli articoli selezionati sono già usciti, non mostrare la pagina di creazione
+            return redirect(url_for('visualizza_giacenze'))
+
     dest_path = CONFIG_FOLDER / 'destinatari_saved.json'
     destinatari = {}
     if dest_path.exists():
@@ -633,6 +639,7 @@ def ddt_setup():
                 data = json.load(f)
                 if isinstance(data, dict): destinatari = data
         except (json.JSONDecodeError, IOError): pass
+        
     if request.method == 'POST':
         n_ddt = request.form.get('n_ddt')
         if not n_ddt:
@@ -667,7 +674,7 @@ def ddt_setup():
 @app.route('/ddt/preview', methods=['POST'])
 def ddt_preview():
     if session.get('role') != 'admin': abort(403)
-    ids_str = request.args.get('ids', '')
+    ids_str = request.form.get('ids', '')
     if not ids_str: return "Errore: Articoli non specificati.", 400
     ids = [int(i) for i in ids_str.split(',')]
     articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
@@ -697,20 +704,30 @@ def etichetta_manuale():
         articolo_selezionato = Articolo.query.get(first_id)
     return render_template('etichetta_manuale.html', articolo=articolo_selezionato)
 
+# ========= INIZIO CODICE MODIFICATO PER ETICHETTE ADATTABILI =========
 @app.route('/etichetta/preview', methods=['POST'])
 def etichetta_preview():
     if session.get('role') != 'admin': abort(403)
+    
     form_data = request.form.to_dict()
-    data_trunc = {k: (v[:35] + '...' if len(v) > 35 else v) for k, v in form_data.items()}
+    # Tronca i dati per evitare che siano troppo lunghi
+    data_trunc = {k: (v[:25] + '...' if len(v) > 25 else v) if isinstance(v, str) else v for k, v in form_data.items()}
     
     buffer = io.BytesIO()
     styles = getSampleStyleSheet()
-    styleN = ParagraphStyle(name='Normal', parent=styles['Normal'], fontSize=8, leading=10)
-    doc = SimpleDocTemplate(buffer, pagesize=(100*mm, 62*mm), margins=(5*mm, 5*mm, 5*mm, 5*mm))
+    # Usa un font più piccolo e un'interlinea ridotta per far stare più testo
+    styleN = ParagraphStyle(name='Normal', parent=styles['Normal'], fontSize=7, leading=9)
+    doc = SimpleDocTemplate(buffer, pagesize=(100*mm, 62*mm), margins=(4*mm, 4*mm, 4*mm, 4*mm))
     testo_etichetta = []
-    for key, value in data_trunc.items():
+    
+    # Ordine dei campi per l'etichetta
+    campi_ordinati = ['cliente', 'fornitore', 'ordine', 'commessa', 'n_ddt_ingresso', 'data_ingresso', 'n_arrivo', 'posizione', 'n_colli', 'protocollo']
+    
+    for key in campi_ordinati:
+        value = data_trunc.get(key)
         if value:
-            testo_etichetta.append(f"<b>{key.replace('_', ' ').title()}:</b> {value}")
+            label = key.replace('_', ' ').replace('n ', 'N. ').title()
+            testo_etichetta.append(f"<b>{label}:</b> {value}")
 
     full_text = "<br/>".join(testo_etichetta)
     story = [Paragraph(full_text, styleN)]
@@ -718,9 +735,12 @@ def etichetta_preview():
         doc.build(story)
     except Exception as e:
         logging.error(f"Errore generazione etichetta: {e}")
-        return "Errore: il testo è troppo lungo per entrare nell'etichetta.", 400
+        # Se ancora non basta, è un caso estremo
+        return "Errore: il testo è ancora troppo lungo per entrare nell'etichetta.", 400
     buffer.seek(0)
     return send_file(buffer, as_attachment=False, download_name='Anteprima_Etichetta.pdf', mimetype='application/pdf')
+# ========= FINE CODICE MODIFICATO PER ETICHETTE ADATTABILI =========
+
 
 @app.route('/articolo/duplica')
 def duplica_articolo():
@@ -733,9 +753,10 @@ def duplica_articolo():
     original_articolo = Articolo.query.get_or_404(original_id)
     nuovo_articolo = Articolo()
     for col in Articolo.__table__.columns:
-        if col.name not in ['id', 'data_ingresso', 'n_ddt_uscita', 'data_uscita', 'buono_n']:
+        if col.name not in ['id', 'data_ingresso', 'n_ddt_uscita', 'data_uscita', 'buono_n', 'stato']:
             setattr(nuovo_articolo, col.name, getattr(original_articolo, col.name))
     nuovo_articolo.data_ingresso = date.today()
+    nuovo_articolo.stato = 'In giacenza' # Imposta lo stato predefinito
     db.session.add(nuovo_articolo)
     db.session.commit()
     flash(f"Articolo {original_id} duplicato con successo nel nuovo ID {nuovo_articolo.id}.", "success")
@@ -747,7 +768,9 @@ def bulk_delete():
     ids_str = request.form.get('selected_ids')
     if ids_str:
         ids = [int(i) for i in ids_str.split(',')]
+        # Elimina prima gli allegati associati per evitare errori di foreign key
         Allegato.query.filter(Allegato.articolo_id.in_(ids)).delete(synchronize_session=False)
+        # Ora elimina gli articoli
         Articolo.query.filter(Articolo.id.in_(ids)).delete(synchronize_session=False)
         db.session.commit()
         flash(f"{len(ids)} articoli eliminati con successo.", "success")
@@ -767,20 +790,35 @@ def edit_multiple():
     if request.method == 'POST':
         campi_da_aggiornare = {}
         for field, value in request.form.items():
-            if f"update_{field}" in request.form and value:
+            # Cerca i checkbox di aggiornamento associati
+            if f"update_{field}" in request.form and value.strip() != "":
                 campi_da_aggiornare[field] = value
 
         if not campi_da_aggiornare:
-            flash("Nessun campo selezionato per l'aggiornamento.", "warning")
+            flash("Nessun campo valido selezionato per l'aggiornamento.", "warning")
             return render_template('edit_multiple.html', articoli=articoli, ids=ids_str)
 
         for art in articoli:
             for field, value in campi_da_aggiornare.items():
-                setattr(art, field, value)
+                # Applica la stessa logica di conversione di populate_articolo_from_form
+                if 'data' in field:
+                    setattr(art, field, parse_date_safe(value))
+                elif field in ['peso', 'larghezza', 'lunghezza', 'altezza']:
+                    setattr(art, field, to_float_safe(value))
+                elif field in ['n_colli']:
+                    setattr(art, field, to_int_safe(value))
+                else:
+                    setattr(art, field, value)
+            
+            # Ricalcola m2 e m3 se necessario
+            art_form_data = {col.name: getattr(art, col.name) for col in art.__table__.columns}
+            art.m2, art.m3 = calculate_m2_m3(art_form_data)
+
         db.session.commit()
         flash(f"{len(articoli)} articoli aggiornati.", "success")
         return redirect(url_for('visualizza_giacenze'))
     return render_template('edit_multiple.html', articoli=articoli, ids=ids_str)
+
 
 @app.route('/destinatari', methods=['GET', 'POST'])
 def gestione_destinatari():
@@ -822,8 +860,6 @@ def report():
         if cliente and mese_anno:
             try:
                 anno, mese = map(int, mese_anno.split('-'))
-                # ========= INIZIO CODICE MODIFICATO PER CALCOLO COSTI =========
-                primo_giorno = date(anno, mese, 1)
                 ultimo_giorno_numero = calendar.monthrange(anno, mese)[1]
                 fine_mese = date(anno, mese, ultimo_giorno_numero)
 
@@ -832,12 +868,11 @@ def report():
                     Articolo.data_ingresso <= fine_mese,
                     (Articolo.data_uscita == None) | (Articolo.data_uscita > fine_mese)
                 ).all()
-                # ========= FINE CODICE MODIFICATO PER CALCOLO COSTI =========
                 
                 m2_totali = sum(art.m2 or 0 for art in articoli_in_giacenza)
                 
                 if not articoli_in_giacenza:
-                    flash(f"Nessun articolo in giacenza trovato per {cliente} nel periodo selezionato.", "info")
+                    flash(f"Nessun articolo in giacenza trovato per {cliente} alla fine del periodo {mese:02d}-{anno}.", "info")
 
                 risultato = {
                     "cliente": cliente, "periodo": f"{mese:02d}-{anno}",
