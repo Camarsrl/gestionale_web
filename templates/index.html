@@ -1,136 +1,204 @@
 {% extends "layout.html" %}
 
+{% block custom_css %}
+<style>
+    /* Contenitore per permettere lo scorrimento orizzontale */
+    .table-container {
+        overflow-x: auto;
+    }
+
+    /* Stile generale della tabella */
+    .table-giacenze {
+        table-layout: fixed; /* Fondamentale per rispettare le larghezze delle colonne */
+        width: 100%;         /* La tabella occupa tutta la larghezza del contenitore */
+    }
+
+    /* Stile per tutte le celle, header (th) e dati (td) */
+    .table-giacenze th,
+    .table-giacenze td {
+        vertical-align: middle;  /* Allinea il testo verticalmente al centro */
+        white-space: normal;     /* Permette al testo di andare a capo */
+        word-wrap: break-word;   /* Forza il testo ad andare a capo se una parola è troppo lunga */
+    }
+
+    /* Larghezze specifiche per ogni colonna per un layout ordinato */
+    .col-check { width: 40px; }
+    .col-azioni { width: 70px; }
+    .col-id { width: 70px; }
+    .col-codice { width: 250px; } /* Colonna Codice Art. più larga */
+    .col-desc { width: 350px; }   /* Colonna Descrizione ancora più larga */
+    .col-cliente { width: 150px; }
+    .col-fornitore { width: 150px; }
+    .col-data { width: 110px; }
+    .col-stato { width: 100px; }
+    .col-ddt { width: 120px; }
+    .col-misure { width: 90px; } /* Colonne per le misure */
+</style>
+{% endblock %}
+
+
 {% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3>Giacenze Magazzino</h3>
+    <a href="{{ url_for('add_articolo') }}" class="btn btn-primary">
+        <i class="bi bi-plus-circle-fill me-2"></i>Aggiungi Articolo
+    </a>
+</div>
+
 <div class="card mb-3">
-    <div class="card-header" data-bs-toggle="collapse" href="#filtriCollapse" role="button" aria-expanded="false" aria-controls="filtriCollapse" style="cursor: pointer;">
-        <h5 class="mb-0">Filtri Ricerca</h5>
-    </div>
-    <div class="collapse" id="filtriCollapse">
-        <div class="card-body">
-            <form method="GET" action="{{ url_for('visualizza_giacenze') }}">
-                <div class="row g-2">
-                    <div class="col-md-2"><label class="form-label small">Cliente</label><input type="text" name="cliente" class="form-control form-control-sm" value="{{ filters.get('cliente', '') }}"></div>
-                    <div class="col-md-2"><label class="form-label small">Fornitore</label><input type="text" name="fornitore" class="form-control form-control-sm" value="{{ filters.get('fornitore', '') }}"></div>
-                    <div class="col-md-2"><label class="form-label small">Commessa</label><input type="text" name="commessa" class="form-control form-control-sm" value="{{ filters.get('commessa', '') }}"></div>
-                    <div class="col-md-2"><label class="form-label small">Stato</label><input type="text" name="stato" class="form-control form-control-sm" value="{{ filters.get('stato', '') }}"></div>
-                    <div class="col-md-2"><label class="form-label small">Posizione</label><input type="text" name="posizione" class="form-control form-control-sm" value="{{ filters.get('posizione', '') }}"></div>
-                    <div class="col-md-2"><label class="form-label small">Protocollo</label><input type="text" name="protocollo" class="form-control form-control-sm" value="{{ filters.get('protocollo', '') }}"></div>
-                    <div class="col-md-4"><label class="form-label small">Descrizione</label><input type="text" name="descrizione" class="form-control form-control-sm" value="{{ filters.get('descrizione', '') }}"></div>
-                    <div class="col-md-2"><label class="form-label small">Mezzo Uscito</label><input type="text" name="mezzi_in_uscita" class="form-control form-control-sm" value="{{ filters.get('mezzi_in_uscita', '') }}"></div>
-                    <div class="col-md-3"><label class="form-label small">Serial Number</label><input type="text" name="serial_number" class="form-control form-control-sm" value="{{ filters.get('serial_number', '') }}"></div>
-                    <div class="col-md-3"><label class="form-label small">Ns Rif.</label><input type="text" name="ns_rif" class="form-control form-control-sm" value="{{ filters.get('ns_rif', '') }}"></div>
-                    <div class="col-md-2"><label class="form-label small">N. DDT Ingresso</label><input type="text" name="n_ddt_ingresso" class="form-control form-control-sm" value="{{ filters.get('n_ddt_ingresso', '') }}"></div>
-                    <div class="col-md-2"><label class="form-label small">N. DDT Uscita</label><input type="text" name="n_ddt_uscita" class="form-control form-control-sm" value="{{ filters.get('n_ddt_uscita', '') }}"></div>
-                    <div class="col-md-2"><label class="form-label small">N. Arrivo</label><input type="text" name="n_arrivo" class="form-control form-control-sm" value="{{ filters.get('n_arrivo', '') }}"></div>
-                    <div class="col-md-2"><label class="form-label small">N. Buono</label><input type="text" name="buono_n" class="form-control form-control-sm" value="{{ filters.get('buono_n', '') }}"></div>
-                    <div class="col-md-3"><label class="form-label small">Data Ingr. Da</label><input type="date" name="data_ingresso_da" class="form-control form-control-sm" value="{{ filters.get('data_ingresso_da', '') }}"></div>
-                    <div class="col-md-3"><label class="form-label small">Data Ingr. A</label><input type="date" name="data_ingresso_a" class="form-control form-control-sm" value="{{ filters.get('data_ingresso_a', '') }}"></div>
-                    <div class="col-md-3"><label class="form-label small">Data Usc. Da</label><input type="date" name="data_uscita_da" class="form-control form-control-sm" value="{{ filters.get('data_uscita_da', '') }}"></div>
-                    <div class="col-md-3"><label class="form-label small">Data Usc. A</label><input type="date" name="data_uscita_a" class="form-control form-control-sm" value="{{ filters.get('data_uscita_a', '') }}"></div>
+    <div class="card-body">
+        <form method="get" action="{{ url_for('visualizza_giacenze') }}">
+             <div class="row g-2 align-items-end">
+                <div class="col-md-2">
+                    <label class="form-label small">ID</label>
+                    <input type="text" name="id" class="form-control form-control-sm" value="{{ filters.get('id', '') }}">
                 </div>
-                <div class="mt-3">
-                    <button type="submit" class="btn btn-sm btn-primary">Applica Filtri</button>
-                    <a href="{{ url_for('visualizza_giacenze') }}" class="btn btn-sm btn-secondary">Pulisci Filtri</a>
+                <div class="col-md-3">
+                    <label class="form-label small">Codice Articolo</label>
+                    <input type="text" name="codice_articolo" class="form-control form-control-sm" value="{{ filters.get('codice_articolo', '') }}">
                 </div>
-            </form>
-        </div>
+                 <div class="col-md-3">
+                    <label class="form-label small">Descrizione</label>
+                    <input type="text" name="descrizione" class="form-control form-control-sm" value="{{ filters.get('descrizione', '') }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Cliente</label>
+                    <input type="text" name="cliente" class="form-control form-control-sm" value="{{ filters.get('cliente', '') }}">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-sm btn-secondary w-100">Filtra</button>
+                    <a href="{{ url_for('visualizza_giacenze') }}" class="btn btn-sm btn-outline-secondary w-100 ms-2">Reset</a>
+                </div>
+            </div>
+        </form>
     </div>
 </div>
+
 
 <div class="card">
     <div class="card-body">
         <div class="mb-3">
-            <button class="btn btn-sm btn-outline-primary" id="btn-buono">Crea Buono</button>
-            <button class="btn btn-sm btn-outline-primary" id="btn-ddt">Crea DDT</button>
-            <button class="btn btn-sm btn-outline-warning" id="btn-edit-multiple">Modifica Selez.</button>
-            <button class="btn btn-sm btn-outline-info" id="btn-duplicate">Duplica Selez.</button>
-            <a href="{{ url_for('export_excel', **filters) }}" class="btn btn-sm btn-outline-dark">Esporta Vista</a>
-            <button class="btn btn-sm btn-outline-danger float-end" id="btn-delete-selected">Elimina Selez.</button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="handleBulkAction('{{ url_for('buono_setup') }}')">Crea Buono</button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="handleBulkAction('{{ url_for('ddt_setup') }}')">Crea DDT</button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="handleBulkAction('{{ url_for('etichetta_manuale') }}')">Stampa Etichetta</button>
+            <button class="btn btn-sm btn-info text-white" onclick="handleBulkAction('{{ url_for('edit_multiple') }}')">Modifica Selez.</button>
+            <button class="btn btn-sm btn-warning" onclick="handleBulkAction('{{ url_for('duplica_articolo') }}')">Duplica Selez.</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteSelected()">Elimina Selez.</button>
         </div>
-        
-        <div class="table-responsive" style="max-height: 65vh; overflow: auto;">
-            <table class="table table-sm table-striped table-bordered" style="font-size: 0.8rem; white-space: nowrap;">
-                <thead style="position: sticky; top: 0; background-color: #f8f9fa; z-index: 1;">
-                    <tr>
-                        <th><input type="checkbox" id="select-all"></th>
-                        <th>Azioni</th>
-                        <th>ID</th><th>Codice Art.</th><th>Descrizione</th><th>Cliente</th><th>Fornitore</th>
-                        <th>Commessa</th><th>Ordine</th><th>Data Ingr.</th><th>N. DDT Ingr.</th>
-                        <th>N. Colli</th><th>Peso</th><th>Posizione</th><th>Stato</th><th>Buono N.</th>
-                        <th>DDT Uscita</th><th>Data Uscita</th><th>Protocollo</th><th>Serial N.</th>
-                        <th>N. Arrivo</th><th>Ns Rif.</th><th>Mezzo Usc.</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for art in articoli %}
-                    <tr>
-                        <td onclick="event.stopPropagation();"><input type="checkbox" class="articolo-checkbox" value="{{ art.id }}"></td>
-                        <td><a href="{{ url_for('edit_articolo', id=art.id) }}" class="btn btn-sm btn-outline-primary py-0 px-1" title="Modifica">Mod.</a></td>
-                        <td>{{ art.id }}</td><td>{{ art.codice_articolo or '' }}</td><td>{{ art.descrizione or '' }}</td>
-                        <td>{{ art.cliente or '' }}</td><td>{{ art.fornitore or '' }}</td><td>{{ art.commessa or '' }}</td>
-                        <td>{{ art.ordine or '' }}</td><td>{{ art.data_ingresso.strftime('%d/%m/%Y') if art.data_ingresso else '' }}</td>
-                        <td>{{ art.n_ddt_ingresso or '' }}</td><td>{{ art.n_colli or '' }}</td><td>{{ art.peso or '' }}</td>
-                        <td>{{ art.posizione or '' }}</td>
-                        <td><span class="badge bg-{{ 'success' if art.stato == 'In giacenza' else 'secondary' }}">{{ art.stato }}</span></td>
-                        <td>{{ art.buono_n or '' }}</td><td>{{ art.n_ddt_uscita or '' }}</td>
-                        <td>{{ art.data_uscita.strftime('%d/%m/%Y') if art.data_uscita else '' }}</td>
-                        <td>{{ art.protocollo or ''}}</td><td>{{ art.serial_number or ''}}</td>
-                        <td>{{ art.n_arrivo or ''}}</td><td>{{ art.ns_rif or ''}}</td><td>{{ art.mezzi_in_uscita or ''}}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+
+        <form id="bulk-form" method="get">
+            <div class="table-container">
+                <table class="table table-bordered table-hover table-sm table-giacenze">
+                    <thead>
+                        <tr class="table-light">
+                            <th class="col-check"><input type="checkbox" id="select-all"></th>
+                            <th class="col-azioni">Azioni</th>
+                            <th class="col-id">ID</th>
+                            <th class="col-codice">Codice Art.</th>
+                            <th class="col-desc">Descrizione</th>
+                            <th class="col-cliente">Cliente</th>
+                            <th class="col-fornitore">Fornitore</th>
+                            <th class="col-data">Data Ingresso</th>
+                            <th class="col-stato">Stato</th>
+                            <th class="col-ddt">DDT Ingresso</th>
+                            <th class="col-ddt">DDT Uscita</th>
+                            <th class="col-data">Data Uscita</th>
+                            <th class="col-misure">Larghezza</th>
+                            <th class="col-misure">Lunghezza</th>
+                            <th class="col-misure">Altezza</th>
+                            <th class="col-misure">m²</th>
+                            <th class="col-misure">m³</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for articolo in articoli %}
+                        <tr class="{{ 'table-secondary text-muted' if articolo.stato == 'Uscito' else '' }}">
+                            <td><input type="checkbox" name="ids" value="{{ articolo.id }}" class="form-check-input"></td>
+                            <td>
+                                <a href="{{ url_for('edit_articolo', id=articolo.id) }}" class="btn btn-sm btn-primary">Mod.</a>
+                            </td>
+                            <td>{{ articolo.id }}</td>
+                            <td>{{ articolo.codice_articolo }}</td>
+                            <td>{{ articolo.descrizione }}</td>
+                            <td>{{ articolo.cliente }}</td>
+                            <td>{{ articolo.fornitore }}</td>
+                            <td>{{ articolo.data_ingresso.strftime('%d/%m/%Y') if articolo.data_ingresso }}</td>
+                            <td>{{ articolo.stato }}</td>
+                            <td>{{ articolo.n_ddt_ingresso }}</td>
+                            <td>{{ articolo.n_ddt_uscita }}</td>
+                            <td>{{ articolo.data_uscita.strftime('%d/%m/%Y') if articolo.data_uscita }}</td>
+                            <td>{{ '%.2f'|format(articolo.larghezza|float) if articolo.larghezza is not none }}</td>
+                            <td>{{ '%.2f'|format(articolo.lunghezza|float) if articolo.lunghezza is not none }}</td>
+                            <td>{{ '%.2f'|format(articolo.altezza|float) if articolo.altezza is not none }}</td>
+                            <td>{{ '%.3f'|format(articolo.m2|float) if articolo.m2 is not none }}</td>
+                            <td>{{ '%.3f'|format(articolo.m3|float) if articolo.m3 is not none }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="17" class="text-center">Nessun articolo trovato.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </form>
+    </div>
+    <div class="card-footer">
+        <strong>Totali merce in giacenza:</strong>
+        Colli: {{ totali.colli }} |
+        Peso: {{ '%.2f'|format(totali.peso) }} Kg |
+        m²: {{ '%.3f'|format(totali.m2) }} |
+        m³: {{ '%.3f'|format(totali.m3) }}
     </div>
 </div>
-
-<form id="bulk-delete-form" method="POST" action="{{ url_for('bulk_delete') }}" style="display: none;">
-    <input type="hidden" name="selected_ids" id="delete_ids_field">
-</form>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('select-all').addEventListener('change', function(e) {
-        document.querySelectorAll('.articolo-checkbox').forEach(checkbox => {
-            checkbox.checked = e.target.checked;
-        });
-    });
-
-    function getSelectedIds() {
-        return Array.from(document.querySelectorAll('.articolo-checkbox:checked')).map(cb => cb.value).join(',');
-    }
-
-    function handleActionClick(url, needsOne = false) {
-        const ids = getSelectedIds();
-        if (!ids) {
-            alert('Nessun articolo selezionato.');
-            return;
-        }
-        if (needsOne && ids.split(',').length > 1) {
-            alert('Per questa operazione, seleziona un solo articolo.');
-            return;
-        }
-        window.location.href = url + '?ids=' + ids;
-    }
-
-    document.getElementById('btn-buono').addEventListener('click', () => handleActionClick('{{ url_for("buono_setup") }}'));
-    document.getElementById('btn-ddt').addEventListener('click', () => handleActionClick('{{ url_for("ddt_setup") }}'));
-    document.getElementById('btn-edit-multiple').addEventListener('click', () => handleActionClick('{{ url_for("edit_multiple") }}'));
-    document.getElementById('btn-duplicate').addEventListener('click', () => handleActionClick('{{ url_for("duplica_articolo") }}', true));
-    
-    document.getElementById('btn-delete-selected').addEventListener('click', function() {
-        const ids = getSelectedIds();
-        if (!ids) {
-            alert('Nessun articolo selezionato per l\'eliminazione.');
-            return;
-        }
-        if (confirm(`Sei sicuro di voler eliminare i ${ids.split(',').length} articoli selezionati? L\'azione è irreversibile.`)) {
-            document.getElementById('delete_ids_field').value = ids;
-            document.getElementById('bulk-delete-form').submit();
-        }
+document.getElementById('select-all').addEventListener('change', function(e) {
+    document.querySelectorAll('input[name="ids"]').forEach(checkbox => {
+        checkbox.checked = e.target.checked;
     });
 });
+
+function getSelectedIds() {
+    return Array.from(document.querySelectorAll('input[name="ids"]:checked')).map(cb => cb.value);
+}
+
+function handleBulkAction(url) {
+    const ids = getSelectedIds();
+    if (ids.length === 0) {
+        alert("Seleziona almeno un articolo.");
+        return;
+    }
+     // Per la duplicazione, prendi solo il primo ID
+    if (url.includes('duplica')) {
+        window.location.href = url + '?ids=' + ids[0];
+        return;
+    }
+    window.location.href = url + '?ids=' + ids.join(',');
+}
+
+function deleteSelected() {
+    const ids = getSelectedIds();
+    if (ids.length === 0) {
+        alert("Seleziona almeno un articolo per l'eliminazione.");
+        return;
+    }
+    if (confirm(`Sei sicuro di voler eliminare ${ids.length} articoli? L'azione è irreversibile.`)) {
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.action = '{{ url_for("bulk_delete") }}';
+
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = 'selected_ids';
+        hiddenInput.value = ids.join(',');
+        form.appendChild(hiddenInput);
+
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
 </script>
 {% endblock %}
