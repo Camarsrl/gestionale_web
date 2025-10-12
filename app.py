@@ -133,29 +133,49 @@ def generate_buono_prelievo_pdf(buffer, dati_buono, articoli):
     doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1.5*cm, bottomMargin=2*cm, leftMargin=2*cm, rightMargin=2*cm)
     story = []
     styles = getSampleStyleSheet()
+    body_style = styles['Normal']
+    body_style.fontSize = 9
+    
     logo_path = STATIC_FOLDER / 'logo camar.jpg'
     if logo_path.exists():
         img = RLImage(logo_path, width=7*cm, height=3.5*cm, hAlign='CENTER')
         story.append(img)
         story.append(Spacer(1, 1*cm))
+        
     style_title = ParagraphStyle(name='Title', parent=styles['h1'], alignment=TA_CENTER, spaceAfter=6)
     style_subtitle = ParagraphStyle(name='SubTitle', parent=styles['h2'], alignment=TA_CENTER)
     story.append(Paragraph(f"BUONO PRELIEVO {dati_buono.get('numero_buono', '')}", style_title))
     story.append(Paragraph(f"{dati_buono.get('cliente', '')} - Commessa {dati_buono.get('commessa', '')}", style_subtitle))
     story.append(Spacer(1, 1*cm))
+    
     style_body = ParagraphStyle(name='Body', parent=styles['Normal'], leading=14)
     story.append(Paragraph(f"<b>Data Emissione:</b> {dati_buono.get('data_emissione', '')}", style_body))
     story.append(Paragraph(f"<b>Commessa:</b> {dati_buono.get('commessa', '')}", style_body))
     story.append(Paragraph(f"<b>Fornitore:</b> {dati_buono.get('fornitore', '')}", style_body))
     story.append(Paragraph(f"<b>Protocollo:</b> {dati_buono.get('protocollo', '')}", style_body))
     story.append(Spacer(1, 1*cm))
-    table_data = [['Ordine', 'Codice Articolo', 'Descrizione', 'Quantità', 'N.Arrivo']]
+    
+    table_header = [['Ordine', 'Codice Articolo', 'Descrizione', 'Quantità', 'N.Arrivo']]
+    table_data = []
     for art in articoli:
         quantita = art.pezzo or art.n_colli or '1'
         n_arrivo = art.n_arrivo or ''
-        table_data.append([art.ordine or 'None', art.codice_articolo or '', art.descrizione or '', quantita, n_arrivo])
-    t = Table(table_data, colWidths=[2.5*cm, 4*cm, 7*cm, 2.5*cm, 2.5*cm])
-    t.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 1, colors.black), ('BACKGROUND', (0,0), (-1,0), colors.lightgrey), ('VALIGN', (0,0), (-1,-1), 'TOP'), ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold')]))
+        # ========= INIZIO CODICE MODIFICATO PER PDF WRAP =========
+        table_data.append([
+            Paragraph(art.ordine or 'None', body_style),
+            Paragraph(art.codice_articolo or '', body_style),
+            Paragraph(art.descrizione or '', body_style),
+            Paragraph(str(quantita), body_style),
+            Paragraph(n_arrivo, body_style)
+        ])
+        # ========= FINE CODICE MODIFICATO PER PDF WRAP =========
+        
+    full_table_data = table_header + table_data
+    t = Table(full_table_data, colWidths=[2.5*cm, 4*cm, 7*cm, 2.5*cm, 2.5*cm])
+    t.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 1, colors.black),
+                           ('BACKGROUND', (0,0), (-1,0), colors.lightgrey),
+                           ('VALIGN', (0,0), (-1,-1), 'TOP'),
+                           ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold')]))
     story.append(t)
     story.append(Spacer(1, 3*cm))
     story.append(Paragraph("Firma Magazzino: ________________________", style_body))
@@ -163,10 +183,13 @@ def generate_buono_prelievo_pdf(buffer, dati_buono, articoli):
     story.append(Paragraph("Firma Cliente: ________________________", style_body))
     doc.build(story)
 
+
 def generate_ddt_pdf(buffer, ddt_data, articoli, destinatario_info):
     doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1*cm, bottomMargin=2.5*cm, leftMargin=1.5*cm, rightMargin=1.5*cm)
     story = []
     styles = getSampleStyleSheet()
+    body_style = styles['BodyText']
+    body_style.fontSize = 8
     styles.add(ParagraphStyle(name='BodyText', parent=styles['Normal'], spaceBefore=3, spaceAfter=3, leading=12))
     styles.add(ParagraphStyle(name='HeaderText', parent=styles['BodyText'], alignment=TA_LEFT))
     logo_path = STATIC_FOLDER / 'logo camar.jpg'
@@ -190,23 +213,26 @@ def generate_ddt_pdf(buffer, ddt_data, articoli, destinatario_info):
     details_table = Table([[destinatario_p, ddt_details_p]], colWidths=[10*cm, 8*cm], style=[('VALIGN', (0,0), (-1,-1), 'TOP')])
     story.append(details_table)
     story.append(Spacer(1, 1*cm))
-    table_data = [['Descrizione della merce', 'Cod. Articolo', 'Commessa', 'Q.tà Colli', 'Peso Lordo Kg']]
+    table_data_header = [['Descrizione della merce', 'Cod. Articolo', 'Commessa', 'Q.tà Colli', 'Peso Lordo Kg']]
+    table_data_rows = []
     total_colli = 0
     total_peso = 0.0
     for art in articoli:
-        table_data.append([
-            Paragraph(art.descrizione or '', styles['BodyText']),
-            Paragraph(art.codice_articolo or '', styles['BodyText']),
-            Paragraph(art.commessa or '', styles['BodyText']),
+        table_data_rows.append([
+            Paragraph(art.descrizione or '', body_style),
+            Paragraph(art.codice_articolo or '', body_style),
+            Paragraph(art.commessa or '', body_style),
             art.n_colli or 0,
             art.peso or 0.0
         ])
         total_colli += art.n_colli or 0
         total_peso += art.peso or 0.0
-    article_table = Table(table_data, colWidths=[7*cm, 3*cm, 3*cm, 2*cm, 3*cm])
+        
+    full_table_data = table_data_header + table_data_rows
+    article_table = Table(full_table_data, colWidths=[7*cm, 3*cm, 3*cm, 2*cm, 3*cm])
     article_table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.lightgrey), ('GRID', (0,0), (-1,-1), 1, colors.black),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('VALIGN', (0,0), (-1,-1), 'TOP'),
         ('ALIGN', (3,1), (-1,-1), 'CENTER'),
     ]))
     story.append(article_table)
@@ -325,15 +351,23 @@ def populate_articolo_from_form(articolo, form):
             value = form.get(col.name)
             if 'data' in col.name:
                 setattr(articolo, col.name, parse_date_safe(value))
-            elif isinstance(col.type, (db.Float, db.Numeric)):
+            elif col.name in ['peso', 'larghezza', 'lunghezza', 'altezza']:
                 setattr(articolo, col.name, to_float_safe(value))
-            elif isinstance(col.type, db.Integer):
-                setattr(articolo, col.name, to_int_safe(value))
+            elif col.name in ['n_colli']:
+                 setattr(articolo, col.name, to_int_safe(value))
             else:
                 setattr(articolo, col.name, value if value else None)
 
-    if any(k in form for k in ['lunghezza', 'larghezza', 'altezza', 'n_colli']):
-        articolo.m2, articolo.m3 = calculate_m2_m3(form)
+    if any(k in request.form for k in ['lunghezza', 'larghezza', 'altezza', 'n_colli']):
+         # Ricrea un dizionario per il calcolo, perché 'form' potrebbe non essere un dizionario
+        calc_data = {
+            'lunghezza': request.form.get('lunghezza'),
+            'larghezza': request.form.get('larghezza'),
+            'altezza': request.form.get('altezza'),
+            'n_colli': request.form.get('n_colli')
+        }
+        articolo.m2, articolo.m3 = calculate_m2_m3(calc_data)
+        
     return articolo
 
 @app.route('/articolo/nuovo', methods=['GET', 'POST'])
@@ -548,9 +582,7 @@ def buono_preview():
     buffer.seek(0)
     return send_file(buffer, as_attachment=False, download_name='Anteprima_Buono.pdf', mimetype='application/pdf')
 
-# ========= INIZIO CODICE AGGIUNTO PER ERRORE DDT =========
 def next_ddt_number():
-    """Calcola il prossimo numero di DDT per l'anno corrente."""
     prog_file = CONFIG_FOLDER / "progressivi_ddt.json"
     year_short = date.today().strftime("%y")
     progressivi = {}
@@ -570,16 +602,15 @@ def next_ddt_number():
             json.dump(progressivi, f)
     except IOError:
         logging.error("Impossibile salvare il file dei progressivi DDT.")
-
-    return f"{next_num}/{year_short}"
+    # ========= INIZIO CODICE MODIFICATO PER FORMATO DDT =========
+    return f"{next_num:03d}/{year_short}" # Es: 001/25
+    # ========= FINE CODICE MODIFICATO PER FORMATO DDT =========
 
 @app.route('/api/get_next_ddt_number')
 def get_next_ddt_number():
-    """Endpoint API per fornire il prossimo numero DDT al frontend."""
     if session.get('role') != 'admin':
         abort(403)
     return jsonify({'next_ddt': next_ddt_number()})
-# ========= FINE CODICE AGGIUNTO PER ERRORE DDT =========
 
 @app.route('/ddt/setup', methods=['GET', 'POST'])
 def ddt_setup():
@@ -621,7 +652,17 @@ def ddt_setup():
         buffer.seek(0)
         flash(f"Articoli scaricati con DDT N. {n_ddt}. I dati sono stati salvati.", "success")
         return send_file(buffer, as_attachment=True, download_name=f'DDT_{n_ddt.replace("/", "-")}.pdf', mimetype='application/pdf')
-    return render_template('ddt_setup.html', articoli=articoli, ids=ids_str, destinatari=destinatari, today=date.today().isoformat())
+    
+    tot_colli = sum(art.n_colli or 0 for art in articoli)
+    tot_peso = sum(art.peso or 0 for art in articoli)
+    
+    return render_template('ddt_setup.html', 
+        articoli=articoli, 
+        ids=ids_str, 
+        destinatari=destinatari, 
+        today=date.today().isoformat(),
+        tot_colli=tot_colli,
+        tot_peso=tot_peso)
 
 @app.route('/ddt/preview', methods=['POST'])
 def ddt_preview():
@@ -659,22 +700,17 @@ def etichetta_manuale():
 @app.route('/etichetta/preview', methods=['POST'])
 def etichetta_preview():
     if session.get('role') != 'admin': abort(403)
-    
-    # ========= INIZIO CODICE MODIFICATO PER ERRORE ETICHETTA =========
-    # Tronca i dati per evitare che siano troppo lunghi e usa un font più piccolo
     form_data = request.form.to_dict()
     data_trunc = {k: (v[:35] + '...' if len(v) > 35 else v) for k, v in form_data.items()}
     
     buffer = io.BytesIO()
     styles = getSampleStyleSheet()
-    # Usa un font più piccolo e un'interlinea ridotta per far stare più testo
     styleN = ParagraphStyle(name='Normal', parent=styles['Normal'], fontSize=8, leading=10)
     doc = SimpleDocTemplate(buffer, pagesize=(100*mm, 62*mm), margins=(5*mm, 5*mm, 5*mm, 5*mm))
     testo_etichetta = []
     for key, value in data_trunc.items():
         if value:
             testo_etichetta.append(f"<b>{key.replace('_', ' ').title()}:</b> {value}")
-    # ========= FINE CODICE MODIFICATO PER ERRORE ETICHETTA =========
 
     full_text = "<br/>".join(testo_etichetta)
     story = [Paragraph(full_text, styleN)]
@@ -786,14 +822,23 @@ def report():
         if cliente and mese_anno:
             try:
                 anno, mese = map(int, mese_anno.split('-'))
-                ultimo_giorno = calendar.monthrange(anno, mese)[1]
-                fine_mese = date(anno, mese, ultimo_giorno)
+                # ========= INIZIO CODICE MODIFICATO PER CALCOLO COSTI =========
+                primo_giorno = date(anno, mese, 1)
+                ultimo_giorno_numero = calendar.monthrange(anno, mese)[1]
+                fine_mese = date(anno, mese, ultimo_giorno_numero)
+
                 articoli_in_giacenza = Articolo.query.filter(
                     Articolo.cliente == cliente,
                     Articolo.data_ingresso <= fine_mese,
                     (Articolo.data_uscita == None) | (Articolo.data_uscita > fine_mese)
                 ).all()
+                # ========= FINE CODICE MODIFICATO PER CALCOLO COSTI =========
+                
                 m2_totali = sum(art.m2 or 0 for art in articoli_in_giacenza)
+                
+                if not articoli_in_giacenza:
+                    flash(f"Nessun articolo in giacenza trovato per {cliente} nel periodo selezionato.", "info")
+
                 risultato = {
                     "cliente": cliente, "periodo": f"{mese:02d}-{anno}",
                     "m2_totali": round(m2_totali, 3), "conteggio_articoli": len(articoli_in_giacenza)
