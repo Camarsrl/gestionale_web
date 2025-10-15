@@ -1,36 +1,152 @@
 {% extends "layout.html" %}
+
+{% block custom_css %}
+<style>
+    .form-control-sm { height: calc(1.5em + .5rem + 2px); }
+    .input-group-text-sm { padding: .25rem .5rem; font-size: .875rem; }
+    .table th, .table td { vertical-align: middle; }
+</style>
+{% endblock %}
+
+
 {% block content %}
-<div class="card p-4">
-    <h3>Crea Documento di Trasporto (DDT)</h3>
-    <hr>
-    <form method="POST">
-        <div class="row g-3 mb-4">
-            <div class="col-md-6">
-                <label for="n_ddt" class="form-label">Numero DDT (*)</label>
-                <div class="input-group">
-                    <input type="text" name="n_ddt" id="n_ddt" class="form-control" required>
-                    <button class="btn btn-outline-secondary" type="button" id="get-next-ddt">Prossimo N.</button>
+<form method="POST" id="ddt-form">
+    <input type="hidden" name="ids" value="{{ ids }}">
+    <div class="card shadow-sm">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">Documento di Trasporto</h4>
+            <div class="btn-group">
+                <button type="submit" formaction="{{ url_for('ddt_preview', ids=ids) }}" formtarget="_blank" class="btn btn-primary">
+                    <i class="bi bi-printer me-2"></i>Genera PDF (Anteprima)
+                </button>
+                <button type="button" onclick="submitFinalize()" class="btn btn-success">
+                    <i class="bi bi-check-circle-fill me-2"></i>Finalizza e Scarica DDT
+                </button>
+            </div>
+        </div>
+        <div class="card-body p-4">
+            <div class="row g-3 mb-3">
+                <div class="col-md-3">
+                    <label for="destinatario_key" class="form-label">Destinatario</label>
+                    <div class="input-group">
+                        <select name="destinatario_key" id="destinatario_key" class="form-select" required>
+                             <option value="" disabled selected>-- Seleziona --</option>
+                            {% for key, dest in destinatari.items() %}
+                                <option value="{{ key }}">{{ dest.ragione_sociale }}</option>
+                            {% endfor %}
+                        </select>
+                        <a href="{{ url_for('gestione_destinatari') }}" target="_blank" class="btn btn-outline-secondary" title="Aggiungi o modifica destinatari">
+                            <i class="bi bi-plus-lg"></i>
+                        </a>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label for="n_ddt" class="form-label">N. DDT</label>
+                    <div class="input-group">
+                        <input type="text" id="n_ddt" name="n_ddt" class="form-control" required>
+                        <button class="btn btn-outline-secondary" type="button" id="get-next-ddt" title="Ottieni prossimo numero">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label for="data_uscita" class="form-label">Data DDT</label>
+                    <input type="date" id="data_uscita" name="data_uscita" class="form-control" value="{{ today }}" required>
+                </div>
+                <div class="col-md-3">
+                    <label for="targa_vettore" class="form-label">Targa</label>
+                    <input type="text" id="targa_vettore" name="targa_vettore" class="form-control">
                 </div>
             </div>
+
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label for="causale_trasporto" class="form-label">Causale</label>
+                    <input type="text" id="causale_trasporto" name="causale_trasporto" value="TRASFERIMENTO" class="form-control">
+                </div>
+                <div class="col-md-4">
+                    <label for="porto" class="form-label">Porto</label>
+                    <input type="text" id="porto" name="porto" value="FRANCO" class="form-control">
+                </div>
+                <div class="col-md-4">
+                    <label for="aspetto_beni" class="form-label">Aspetto</label>
+                    <input type="text" id="aspetto_beni" name="aspetto_beni" value="A VISTA" class="form-control">
+                </div>
             </div>
-        <div class="mt-4">
-            <button type="submit" formaction="{{ url_for('ddt_setup', ids=request.args.get('ids')) }}" class="btn btn-primary">Genera DDT e Salva</button>
-            <button type="submit" formaction="{{ url_for('ddt_preview', ids=request.args.get('ids')) }}" formtarget="_blank" class="btn btn-info">Anteprima</button>
-            <a href="{{ url_for('visualizza_giacenze') }}" class="btn btn-secondary">Annulla</a>
+            
+            <hr>
+
+            <h5 class="mt-4">Articoli nel DDT</h5>
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 80px;">ID</th>
+                            <th>Cod.Art.</th>
+                            <th>Descrizione</th>
+                            <th style="width: 100px;">Pezzi</th>
+                            <th style="width: 100px;">Colli</th>
+                            <th style="width: 120px;">Peso</th>
+                            <th>N.Arrivo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for art in articoli %}
+                        <tr>
+                            <td>{{ art.id }}</td>
+                            <td>{{ art.codice_articolo }}</td>
+                            <td>{{ art.descrizione }}</td>
+                            <td><input class="form-control form-control-sm" name="pezzi_{{ art.id }}" value="{{ art.pezzo or 1 }}"></td>
+                            <td><input class="form-control form-control-sm" name="colli_{{ art.id }}" value="{{ art.n_colli or 1 }}"></td>
+                            <td><input class="form-control form-control-sm" name="peso_{{ art.id }}" value="{{ art.peso or '' }}"></td>
+                            <td>{{ art.n_arrivo }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
-    </form>
-</div>
+        <div class="card-footer bg-light d-flex justify-content-end">
+             <a href="{{ url_for('visualizza_giacenze') }}" class="btn btn-secondary">Annulla</a>
+        </div>
+    </div>
+</form>
 {% endblock %}
+
 {% block extra_js %}
 <script>
-document.getElementById('get-next-ddt').addEventListener('click', function() {
-    fetch('{{ url_for("get_next_ddt_number") }}')
-        .then(response => response.json())
-        .then(data => {
-            if (data.next_ddt) {
-                document.getElementById('n_ddt').value = data.next_ddt;
-            }
-        });
+document.addEventListener('DOMContentLoaded', function() {
+    // Funzione per caricare il prossimo numero di DDT
+    function fetchNextDDT() {
+        fetch('{{ url_for("get_next_ddt_number") }}')
+            .then(response => response.json())
+            .then(data => {
+                if (data.next_ddt) {
+                    document.getElementById('n_ddt').value = data.next_ddt;
+                }
+            })
+            .catch(error => console.error('Errore nel recupero del numero DDT:', error));
+    }
+
+    // Associa l'evento al pulsante con l'icona
+    document.getElementById('get-next-ddt').addEventListener('click', fetchNextDDT);
+    
+    // Carica il primo numero all'avvio della pagina
+    fetchNextDDT();
 });
+
+// Funzione per finalizzare e scaricare il DDT
+function submitFinalize() {
+    const form = document.getElementById('ddt-form');
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+
+    // Imposta l'azione del form per finalizzare
+    form.action = '{{ url_for("ddt_finalize", ids=ids) }}';
+    form.target = '_self'; // Apri nello stesso tab
+    form.submit();
+}
 </script>
 {% endblock %}
