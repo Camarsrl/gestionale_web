@@ -334,7 +334,7 @@ def visualizza_giacenze():
                     try:
                         query = query.filter(Articolo.id == int(value))
                     except ValueError:
-                        pass # ignora se l'ID non è un numero
+                        pass 
                 else:
                     query = query.filter(getattr(Articolo, key).ilike(f"%{value}%"))
 
@@ -363,7 +363,6 @@ def populate_articolo_from_form(articolo, form):
             else:
                 setattr(articolo, col.name, value if value else None)
 
-    # Calcola m2 e m3 solo se i campi necessari sono nel form
     if any(k in form for k in ['lunghezza', 'larghezza', 'altezza', 'n_colli']):
         calc_data = {
             'lunghezza': form.get('lunghezza'),
@@ -703,30 +702,25 @@ def etichetta_manuale():
         articolo_selezionato = Articolo.query.get(first_id)
     return render_template('etichetta_manuale.html', articolo=articolo_selezionato)
 
-# ========= INIZIO CODICE MODIFICATO PER ETICHETTA SU PAGINA SINGOLA =========
 @app.route('/etichetta/preview', methods=['POST'])
 def etichetta_preview():
     if session.get('role') != 'admin': abort(403)
     
     buffer = io.BytesIO()
-    # Usa landscape per il formato orizzontale in modo esplicito
     doc = SimpleDocTemplate(buffer, pagesize=landscape((100*mm, 62*mm)), 
                             leftMargin=5*mm, rightMargin=5*mm, topMargin=5*mm, bottomMargin=5*mm)
     
     styles = getSampleStyleSheet()
-    # Stile con font piccolo e interlinea ridotta per massimizzare lo spazio
     styleN = ParagraphStyle(name='NormalSmall', parent=styles['Normal'], fontSize=8, leading=10, spaceAfter=1)
 
     form_data = request.form.to_dict()
     
-    # Lista di dati per la tabella, ogni riga è una coppia [etichetta, valore]
     label_data = []
     campi_ordinati = ['cliente', 'fornitore', 'ordine', 'commessa', 'n_ddt_ingresso', 'data_ingresso', 'n_arrivo', 'posizione', 'n_colli', 'protocollo']
 
     for key in campi_ordinati:
         value = form_data.get(key)
         if value and str(value).strip():
-            # Tronca il valore se troppo lungo per sicurezza
             value_str = str(value)
             value_display = (value_str[:40] + '...') if len(value_str) > 40 else value_str
             
@@ -738,7 +732,6 @@ def etichetta_preview():
     if not label_data:
         return "Nessun dato da stampare.", 400
 
-    # Crea la tabella con due colonne
     table = Table(label_data, colWidths=[3*cm, 6*cm])
     table.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
@@ -749,7 +742,6 @@ def etichetta_preview():
     ]))
 
     try:
-        # Costruisci il PDF con la tabella come unico elemento
         doc.build([table])
     except Exception as e:
         logging.error(f"Errore generazione etichetta con tabella: {e}")
@@ -757,7 +749,6 @@ def etichetta_preview():
         
     buffer.seek(0)
     return send_file(buffer, as_attachment=False, download_name='Anteprima_Etichetta.pdf', mimetype='application/pdf')
-# ========= FINE CODICE MODIFICATO =========
 
 
 @app.route('/articolo/duplica')
@@ -774,7 +765,7 @@ def duplica_articolo():
         if col.name not in ['id', 'data_ingresso', 'n_ddt_uscita', 'data_uscita', 'buono_n', 'stato']:
             setattr(nuovo_articolo, col.name, getattr(original_articolo, col.name))
     nuovo_articolo.data_ingresso = date.today()
-    nuovo_articolo.stato = 'In giacenza' # Imposta lo stato predefinito
+    nuovo_articolo.stato = 'In giacenza'
     db.session.add(nuovo_articolo)
     db.session.commit()
     flash(f"Articolo {original_id} duplicato con successo nel nuovo ID {nuovo_articolo.id}.", "success")
@@ -786,9 +777,7 @@ def bulk_delete():
     ids_str = request.form.get('selected_ids')
     if ids_str:
         ids = [int(i) for i in ids_str.split(',')]
-        # Elimina prima gli allegati associati per evitare errori di foreign key
         Allegato.query.filter(Allegato.articolo_id.in_(ids)).delete(synchronize_session=False)
-        # Ora elimina gli articoli
         Articolo.query.filter(Articolo.id.in_(ids)).delete(synchronize_session=False)
         db.session.commit()
         flash(f"{len(ids)} articoli eliminati con successo.", "success")
@@ -808,7 +797,6 @@ def edit_multiple():
     if request.method == 'POST':
         campi_da_aggiornare = {}
         for field, value in request.form.items():
-            # Cerca i checkbox di aggiornamento associati
             if f"update_{field}" in request.form and value.strip() != "":
                 campi_da_aggiornare[field] = value
 
@@ -818,7 +806,6 @@ def edit_multiple():
 
         for art in articoli:
             for field, value in campi_da_aggiornare.items():
-                # Applica la stessa logica di conversione di populate_articolo_from_form
                 if 'data' in field:
                     setattr(art, field, parse_date_safe(value))
                 elif field in ['peso', 'larghezza', 'lunghezza', 'altezza']:
@@ -828,7 +815,6 @@ def edit_multiple():
                 else:
                     setattr(art, field, value)
             
-            # Ricalcola m2 e m3 se necessario
             art_form_data = {col.name: getattr(art, col.name) for col in art.__table__.columns}
             art.m2, art.m3 = calculate_m2_m3(art_form_data)
 
