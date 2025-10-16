@@ -2,37 +2,49 @@
 
 {% block custom_css %}
 <style>
-    /* Contenitore per permettere lo scorrimento orizzontale */
+    /* Contenitore per la tabella con scroll verticale e orizzontale */
     .table-container {
-        overflow-x: auto;
+        overflow-x: auto; /* Abilita scorrimento orizzontale */
+        max-height: 70vh; /* Imposta un'altezza massima per la tabella */
+        overflow-y: auto; /* Abilita scorrimento verticale */
+        position: relative;
     }
 
     /* Stile generale della tabella */
     .table-giacenze {
         table-layout: fixed; /* Fondamentale per rispettare le larghezze delle colonne */
-        width: 100%;         /* La tabella occupa tutta la larghezza del contenitore */
+        min-width: 2800px;  /* Imposta una larghezza minima totale per forzare lo scroll orizzontale */
     }
 
-    /* Stile per tutte le celle, header (th) e dati (td) */
+    /* Intestazione della tabella fissa (sticky) */
+    .table-giacenze thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background-color: #f8f9fa; /* Sfondo per non far vedere il testo sotto */
+    }
+
+    /* Stile per tutte le celle (header e dati) */
     .table-giacenze th,
     .table-giacenze td {
-        vertical-align: middle;  /* Allinea il testo verticalmente al centro */
+        vertical-align: middle;
         white-space: normal;     /* Permette al testo di andare a capo */
         word-wrap: break-word;   /* Forza il testo ad andare a capo se una parola è troppo lunga */
     }
 
-    /* Larghezze specifiche per ogni colonna per un layout ordinato */
+    /* Larghezze specifiche per ogni colonna */
     .col-check { width: 40px; }
     .col-azioni { width: 70px; }
     .col-id { width: 70px; }
-    .col-codice { width: 250px; } /* Colonna Codice Art. più larga */
-    .col-desc { width: 350px; }   /* Colonna Descrizione ancora più larga */
-    .col-cliente { width: 150px; }
-    .col-fornitore { width: 150px; }
+    .col-codice { width: 250px; }
+    .col-desc { width: 350px; }
+    .col-cliente, .col-fornitore { width: 150px; }
     .col-data { width: 110px; }
     .col-stato { width: 100px; }
     .col-ddt { width: 120px; }
-    .col-misure { width: 90px; } /* Colonne per le misure */
+    .col-misure { width: 90px; }
+    .col-commessa, .col-ordine, .col-protocollo, .col-nsrif, .col-narrivo { width: 150px; }
+    .col-serial, .col-posizione, .col-mezzo { width: 180px; }
 </style>
 {% endblock %}
 
@@ -45,32 +57,46 @@
     </a>
 </div>
 
-<div class="card mb-3">
-    <div class="card-body">
-        <form method="get" action="{{ url_for('visualizza_giacenze') }}">
-             <div class="row g-2 align-items-end">
-                <div class="col-md-2">
-                    <label class="form-label small">ID</label>
-                    <input type="text" name="id" class="form-control form-control-sm" value="{{ filters.get('id', '') }}">
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label small">Codice Articolo</label>
-                    <input type="text" name="codice_articolo" class="form-control form-control-sm" value="{{ filters.get('codice_articolo', '') }}">
-                </div>
-                 <div class="col-md-3">
-                    <label class="form-label small">Descrizione</label>
-                    <input type="text" name="descrizione" class="form-control form-control-sm" value="{{ filters.get('descrizione', '') }}">
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label small">Cliente</label>
-                    <input type="text" name="cliente" class="form-control form-control-sm" value="{{ filters.get('cliente', '') }}">
-                </div>
-                <div class="col-md-2 d-flex align-items-end">
-                    <button type="submit" class="btn btn-sm btn-secondary w-100">Filtra</button>
-                    <a href="{{ url_for('visualizza_giacenze') }}" class="btn btn-sm btn-outline-secondary w-100 ms-2">Reset</a>
-                </div>
+<div class="accordion mb-3" id="filtriAccordion">
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingOne">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFiltri" aria-expanded="false" aria-controls="collapseFiltri">
+                Filtri di Ricerca
+            </button>
+        </h2>
+        <div id="collapseFiltri" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#filtriAccordion">
+            <div class="accordion-body">
+                <form method="get" action="{{ url_for('visualizza_giacenze') }}">
+                    <div class="row g-3">
+                        <div class="col-md-2"><label class="form-label">ID</label><input type="text" name="id" class="form-control form-control-sm" value="{{ filters.get('id', '') }}"></div>
+                        <div class="col-md-2"><label class="form-label">Commessa</label><input type="text" name="commessa" class="form-control form-control-sm" value="{{ filters.get('commessa', '') }}"></div>
+                        <div class="col-md-2"><label class="form-label">Cliente</label><input type="text" name="cliente" class="form-control form-control-sm" value="{{ filters.get('cliente', '') }}"></div>
+                        <div class="col-md-2"><label class="form-label">Fornitore</label><input type="text" name="fornitore" class="form-control form-control-sm" value="{{ filters.get('fornitore', '') }}"></div>
+                        <div class="col-md-2"><label class="form-label">N. Arrivo</label><input type="text" name="n_arrivo" class="form-control form-control-sm" value="{{ filters.get('n_arrivo', '') }}"></div>
+                        <div class="col-md-2"><label class="form-label">Stato</label><input type="text" name="stato" class="form-control form-control-sm" value="{{ filters.get('stato', '') }}"></div>
+
+                        <div class="col-md-4"><label class="form-label">Codice Articolo</label><input type="text" name="codice_articolo" class="form-control form-control-sm" value="{{ filters.get('codice_articolo', '') }}"></div>
+                        <div class="col-md-4"><label class="form-label">Descrizione</label><input type="text" name="descrizione" class="form-control form-control-sm" value="{{ filters.get('descrizione', '') }}"></div>
+                        <div class="col-md-4"><label class="form-label">Serial Number</label><input type="text" name="serial_number" class="form-control form-control-sm" value="{{ filters.get('serial_number', '') }}"></div>
+                        
+                        <div class="col-md-3"><label class="form-label">Posizione</label><input type="text" name="posizione" class="form-control form-control-sm" value="{{ filters.get('posizione', '') }}"></div>
+                        <div class="col-md-3"><label class="form-label">Mezzo in Uscita</label><input type="text" name="mezzi_in_uscita" class="form-control form-control-sm" value="{{ filters.get('mezzi_in_uscita', '') }}"></div>
+                        <div class="col-md-3"><label class="form-label">Ns. Rif.</label><input type="text" name="ns_rif" class="form-control form-control-sm" value="{{ filters.get('ns_rif', '') }}"></div>
+                        <div class="col-md-3"><label class="form-label">Protocollo</label><input type="text" name="protocollo" class="form-control form-control-sm" value="{{ filters.get('protocollo', '') }}"></div>
+
+                        <div class="col-md-3"><label class="form-label">Data Ingresso (Da)</label><input type="date" name="data_ingresso_da" class="form-control form-control-sm" value="{{ filters.get('data_ingresso_da', '') }}"></div>
+                        <div class="col-md-3"><label class="form-label">Data Ingresso (A)</label><input type="date" name="data_ingresso_a" class="form-control form-control-sm" value="{{ filters.get('data_ingresso_a', '') }}"></div>
+                        <div class="col-md-3"><label class="form-label">Data Uscita (Da)</label><input type="date" name="data_uscita_da" class="form-control form-control-sm" value="{{ filters.get('data_uscita_da', '') }}"></div>
+                        <div class="col-md-3"><label class="form-label">Data Uscita (A)</label><input type="date" name="data_uscita_a" class="form-control form-control-sm" value="{{ filters.get('data_uscita_a', '') }}"></div>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-end">
+                        <a href="{{ url_for('visualizza_giacenze') }}" class="btn btn-sm btn-outline-secondary me-2">Reset Filtri</a>
+                        <button type="submit" class="btn btn-sm btn-primary">Applica Filtri</button>
+                    </div>
+                </form>
             </div>
-        </form>
+        </div>
     </div>
 </div>
 
@@ -86,7 +112,7 @@
             <button class="btn btn-sm btn-danger" onclick="deleteSelected()">Elimina Selez.</button>
         </div>
 
-        <form id="bulk-form" method="get">
+        <form id="bulk-form">
             <div class="table-container">
                 <table class="table table-bordered table-hover table-sm table-giacenze">
                     <thead>
@@ -108,15 +134,23 @@
                             <th class="col-misure">Altezza</th>
                             <th class="col-misure">m²</th>
                             <th class="col-misure">m³</th>
+                            <th class="col-commessa">Commessa</th>
+                            <th class="col-ordine">Ordine</th>
+                            <th class="col-misure">N. Colli</th>
+                            <th class="col-misure">Peso</th>
+                            <th class="col-posizione">Posizione</th>
+                            <th class="col-protocollo">Protocollo</th>
+                            <th class="col-serial">Serial Number</th>
+                            <th class="col-narrivo">N. Arrivo</th>
+                            <th class="col-nsrif">Ns. Rif.</th>
+                            <th class="col-mezzo">Mezzo in Uscita</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for articolo in articoli %}
                         <tr class="{{ 'table-secondary text-muted' if articolo.stato == 'Uscito' else '' }}">
                             <td><input type="checkbox" name="ids" value="{{ articolo.id }}" class="form-check-input"></td>
-                            <td>
-                                <a href="{{ url_for('edit_articolo', id=articolo.id) }}" class="btn btn-sm btn-primary">Mod.</a>
-                            </td>
+                            <td><a href="{{ url_for('edit_articolo', id=articolo.id) }}" class="btn btn-sm btn-primary">Mod.</a></td>
                             <td>{{ articolo.id }}</td>
                             <td>{{ articolo.codice_articolo }}</td>
                             <td>{{ articolo.descrizione }}</td>
@@ -132,10 +166,20 @@
                             <td>{{ '%.2f'|format(articolo.altezza|float) if articolo.altezza is not none }}</td>
                             <td>{{ '%.3f'|format(articolo.m2|float) if articolo.m2 is not none }}</td>
                             <td>{{ '%.3f'|format(articolo.m3|float) if articolo.m3 is not none }}</td>
+                            <td>{{ articolo.commessa }}</td>
+                            <td>{{ articolo.ordine }}</td>
+                            <td>{{ articolo.n_colli }}</td>
+                            <td>{{ articolo.peso }}</td>
+                            <td>{{ articolo.posizione }}</td>
+                            <td>{{ articolo.protocollo }}</td>
+                            <td>{{ articolo.serial_number }}</td>
+                            <td>{{ articolo.n_arrivo }}</td>
+                            <td>{{ articolo.ns_rif }}</td>
+                            <td>{{ articolo.mezzi_in_uscita }}</td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="17" class="text-center">Nessun articolo trovato.</td>
+                            <td colspan="27" class="text-center">Nessun articolo trovato.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -173,6 +217,10 @@ function handleBulkAction(url) {
     }
      // Per la duplicazione, prendi solo il primo ID
     if (url.includes('duplica')) {
+        if (ids.length > 1) {
+            alert("Seleziona un solo articolo per la duplicazione.");
+            return;
+        }
         window.location.href = url + '?ids=' + ids[0];
         return;
     }
