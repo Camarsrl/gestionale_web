@@ -5,7 +5,7 @@
     /* Contenitore per la tabella con scroll verticale e orizzontale */
     .table-container {
         overflow-x: auto; /* Abilita scorrimento orizzontale */
-        max-height: 70vh; /* Imposta un'altezza massima per la tabella */
+        max-height: 70vh; /* Imposta un'altezza massima, dopo la quale appare lo scroll verticale */
         overflow-y: auto; /* Abilita scorrimento verticale */
         position: relative;
     }
@@ -13,7 +13,8 @@
     /* Stile generale della tabella */
     .table-giacenze {
         table-layout: fixed; /* Fondamentale per rispettare le larghezze delle colonne */
-        min-width: 2800px;  /* Imposta una larghezza minima totale per forzare lo scroll orizzontale */
+        min-width: 2800px;  /* Larghezza minima totale per forzare lo scroll orizzontale */
+        font-size: 0.875rem; /* Riduce la dimensione del carattere come richiesto */
     }
 
     /* Intestazione della tabella fissa (sticky) */
@@ -21,7 +22,7 @@
         position: sticky;
         top: 0;
         z-index: 2;
-        background-color: #f8f9fa; /* Sfondo per non far vedere il testo sotto */
+        background-color: #e9ecef; /* Sfondo grigio chiaro per l'intestazione fissa */
     }
 
     /* Stile per tutte le celle (header e dati) */
@@ -114,7 +115,7 @@
 
         <form id="bulk-form">
             <div class="table-container">
-                <table class="table table-bordered table-hover table-sm table-giacenze">
+                <table class="table table-bordered table-hover table-sm table-striped table-giacenze">
                     <thead>
                         <tr class="table-light">
                             <th class="col-check"><input type="checkbox" id="select-all"></th>
