@@ -341,8 +341,7 @@ def visualizza_giacenze():
     articoli = query.order_by(Articolo.id.desc()).all()
 
     totali = { 'colli': 0, 'peso': 0.0, 'm2': 0.0, 'm3': 0.0 }
-    # Modificato il criterio: un articolo è in giacenza se non ha una data di uscita
-    articoli_in_giacenza = [art for art in articoli if not art.data_uscita]
+    articoli_in_giacenza = [art for art in articoli if not art.stato or art.stato.lower() != 'uscito']
     for art in articoli_in_giacenza:
         totali['colli'] += art.n_colli or 0
         totali['peso'] += art.peso or 0.0
@@ -671,7 +670,6 @@ def ddt_setup():
     ids = [int(i) for i in ids_str.split(',')]
     articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
     
-    # Modificato: controlla la data di uscita invece dello stato
     articoli_gia_usciti = [art.id for art in articoli if art.data_uscita is not None]
     if articoli_gia_usciti:
         flash(f"Attenzione: Gli articoli ID {articoli_gia_usciti} risultano già spediti (hanno una data di uscita).", "warning")
