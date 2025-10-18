@@ -2,44 +2,33 @@
 
 {% block custom_css %}
 <style>
-    /* Stile per l'intera pagina per ottimizzare il layout */
     .content-wrapper {
         display: flex;
         flex-direction: column;
-        height: calc(100vh - 120px); /* Calcola l'altezza disponibile meno la navbar e il footer */
+        height: calc(100vh - 120px); 
     }
-
-    /* Contenitore per la tabella con scroll verticale e orizzontale */
     .table-container {
-        flex-grow: 1; /* Fa in modo che il contenitore occupi tutto lo spazio verticale rimanente */
-        overflow: auto; /* Abilita entrambi gli scroll, verticale e orizzontale */
+        flex-grow: 1;
+        overflow: auto;
         position: relative;
     }
-
-    /* Stile generale della tabella */
     .table-giacenze {
-        table-layout: fixed; /* Fondamentale per rispettare le larghezze delle colonne */
-        min-width: 2800px;  /* Larghezza minima totale per forzare lo scroll orizzontale */
-        font-size: 0.875rem; /* Riduce la dimensione del carattere */
+        table-layout: fixed;
+        min-width: 2900px;
+        font-size: 0.875rem;
     }
-
-    /* Intestazione della tabella fissa (sticky) */
     .table-giacenze thead th {
         position: sticky;
         top: 0;
         z-index: 2;
-        background-color: #e9ecef; /* Sfondo grigio chiaro per l'intestazione fissa */
+        background-color: #e9ecef;
     }
-
-    /* Stile per tutte le celle (header e dati) per forzare il testo a capo */
     .table-giacenze th,
     .table-giacenze td {
         vertical-align: middle;
-        white-space: normal !important;   /* Forza il testo ad andare a capo */
-        word-wrap: break-word !important; /* Rompe le parole lunghe */
+        white-space: normal !important;
+        word-wrap: break-word !important;
     }
-
-    /* Larghezze specifiche per ogni colonna */
     .col-check { width: 40px; }
     .col-azioni { width: 70px; }
     .col-id { width: 70px; }
@@ -50,7 +39,7 @@
     .col-stato { width: 100px; }
     .col-ddt { width: 120px; }
     .col-misure { width: 90px; }
-    .col-commessa, .col-ordine, .col-protocollo, .col-nsrif, .col-narrivo { width: 150px; }
+    .col-buono, .col-commessa, .col-ordine, .col-protocollo, .col-nsrif, .col-narrivo { width: 150px; }
     .col-serial, .col-posizione, .col-mezzo { width: 180px; }
 </style>
 {% endblock %}
@@ -133,6 +122,7 @@
                                 <th class="col-ddt">DDT Ingresso</th>
                                 <th class="col-ddt">DDT Uscita</th>
                                 <th class="col-data">Data Uscita</th>
+                                <th class="col-buono">Buono N.</th>
                                 <th class="col-misure">Larghezza</th>
                                 <th class="col-misure">Lunghezza</th>
                                 <th class="col-misure">Altezza</th>
@@ -165,6 +155,7 @@
                                 <td>{{ articolo.n_ddt_ingresso | default('', true) }}</td>
                                 <td>{{ articolo.n_ddt_uscita | default('', true) }}</td>
                                 <td>{{ articolo.data_uscita.strftime('%d/%m/%Y') if articolo.data_uscita }}</td>
+                                <td>{{ articolo.buono_n | default('', true) }}</td>
                                 <td>{{ '%.2f'|format(articolo.larghezza|float) if articolo.larghezza is not none }}</td>
                                 <td>{{ '%.2f'|format(articolo.lunghezza|float) if articolo.lunghezza is not none }}</td>
                                 <td>{{ '%.2f'|format(articolo.altezza|float) if articolo.altezza is not none }}</td>
@@ -183,7 +174,7 @@
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="27" class="text-center">Nessun articolo trovato.</td>
+                                <td colspan="28" class="text-center">Nessun articolo trovato.</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -225,7 +216,7 @@ function handleBulkAction(url) {
             alert("Seleziona un solo articolo per la duplicazione.");
             return;
         }
-        window.location.href = url + '?ids=' + ids[0];
+        window.location.href = url + '?ids='=' + ids[0];
         return;
     }
     window.location.href = url + '?ids=' + ids.join(',');
