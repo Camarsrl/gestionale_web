@@ -341,7 +341,8 @@ def visualizza_giacenze():
     articoli = query.order_by(Articolo.id.desc()).all()
 
     totali = { 'colli': 0, 'peso': 0.0, 'm2': 0.0, 'm3': 0.0 }
-    articoli_in_giacenza = [art for art in articoli if not art.stato or art.stato.lower() != 'uscito']
+    # Modificato il criterio: un articolo è in giacenza se non ha una data di uscita
+    articoli_in_giacenza = [art for art in articoli if not art.data_uscita]
     for art in articoli_in_giacenza:
         totali['colli'] += art.n_colli or 0
         totali['peso'] += art.peso or 0.0
@@ -637,7 +638,7 @@ def ddt_finalize():
     for art in articoli:
         art.n_ddt_uscita = n_ddt
         art.data_uscita = data_uscita
-        art.stato = 'Uscito'
+        # art.stato = 'Uscito' # RIMOSSO COME DA RICHIESTA
         art.pezzo = to_int_safe(request.form.get(f"pezzi_{art.id}", art.pezzo))
         art.n_colli = to_int_safe(request.form.get(f"colli_{art.id}", art.n_colli))
         art.peso = to_float_safe(request.form.get(f"peso_{art.id}", art.peso))
@@ -658,7 +659,7 @@ def ddt_finalize():
     generate_ddt_pdf(buffer, request.form, articoli, destinatario_scelto)
     buffer.seek(0)
     
-    flash(f"Articoli scaricati con DDT N. {n_ddt}. I dati sono stati salvati.", "success")
+    flash(f"Articoli aggiornati con DDT N. {n_ddt}. I dati sono stati salvati.", "success")
     download_name = f'DDT_{n_ddt.replace("/", "-")}.pdf'
     return send_file(buffer, as_attachment=True, download_name=download_name, mimetype='application/pdf')
 
@@ -669,10 +670,12 @@ def ddt_setup():
     if not ids_str: return redirect(url_for('visualizza_giacenze'))
     ids = [int(i) for i in ids_str.split(',')]
     articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
-    articoli_gia_usciti = [art.id for art in articoli if art.stato and art.stato.lower() == 'uscito']
+    
+    # Modificato: controlla la data di uscita invece dello stato
+    articoli_gia_usciti = [art.id for art in articoli if art.data_uscita is not None]
     if articoli_gia_usciti:
-        flash(f"Attenzione: Gli articoli ID {articoli_gia_usciti} risultano già spediti.", "warning")
-        articoli = [art for art in articoli if not (art.stato and art.stato.lower() == 'uscito')]
+        flash(f"Attenzione: Gli articoli ID {articoli_gia_usciti} risultano già spediti (hanno una data di uscita).", "warning")
+        articoli = [art for art in articoli if art.data_uscita is None]
         ids_str = ','.join(map(str, [art.id for art in articoli]))
         if not articoli: 
             return redirect(url_for('visualizza_giacenze'))
@@ -720,7 +723,6 @@ def ddt_preview():
     buffer.seek(0)
     return send_file(buffer, as_attachment=False, download_name='ANTEPRIMA_DDT.pdf', mimetype='application/pdf')
 
-# ========= INIZIO CODICE MODIFICATO PER ETICHETTE =========
 @app.route('/etichetta', methods=['GET'])
 def etichetta_manuale():
     if session.get('role') != 'admin': abort(403)
@@ -730,13 +732,10 @@ def etichetta_manuale():
         first_id = ids_str.split(',')[0]
         articolo_selezionato = Articolo.query.get(first_id)
     
-    # Carica la lista di clienti unici per il menu a tendina
     clienti_query = db.session.query(Articolo.cliente).distinct().order_by(Articolo.cliente).all()
     clienti = [c[0] for c in clienti_query if c[0]]
     
     return render_template('etichetta_manuale.html', articolo=articolo_selezionato, clienti=clienti)
-# ========= FINE CODICE MODIFICATO PER ETICHETTE =========
-
 
 @app.route('/etichetta/preview', methods=['POST'])
 def etichetta_preview():
@@ -798,10 +797,9 @@ def duplica_articolo():
     original_articolo = Articolo.query.get_or_404(original_id)
     nuovo_articolo = Articolo()
     for col in Articolo.__table__.columns:
-        if col.name not in ['id', 'data_ingresso', 'n_ddt_uscita', 'data_uscita', 'buono_n', 'stato']:
+        if col.name not in ['id', 'data_ingresso', 'n_ddt_uscita', 'data_uscita', 'buono_n']:
             setattr(nuovo_articolo, col.name, getattr(original_articolo, col.name))
     nuovo_articolo.data_ingresso = date.today()
-    nuovo_articolo.stato = 'In giacenza'
     db.session.add(nuovo_articolo)
     db.session.commit()
     flash(f"Articolo {original_id} duplicato con successo nel nuovo ID {nuovo_articolo.id}.", "success")
