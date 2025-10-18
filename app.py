@@ -614,7 +614,55 @@ def get_next_ddt_number():
         abort(403)
     return jsonify({'next_ddt': next_ddt_number()})
 
-@app.route('/ddt/setup', methods=['GET', 'POST'])
+@app.route('/ddt/finalize', methods=['POST'])
+def ddt_finalize():
+    if session.get('role') != 'admin':
+        abort(403)
+    
+    ids_str = request.form.get('ids', '')
+    if not ids_str:
+        flash("Nessun articolo specificato per il DDT.", "warning")
+        return redirect(url_for('visualizza_giacenze'))
+
+    ids = [int(i) for i in ids_str.split(',')]
+    n_ddt = request.form.get('n_ddt', '').strip()
+    data_uscita_str = request.form.get('data_uscita', date.today().isoformat())
+    data_uscita = parse_date_safe(data_uscita_str)
+
+    if not n_ddt:
+        flash("Il numero del DDT è un campo obbligatorio.", "danger")
+        return redirect(request.referrer)
+
+    articoli = db.session.query(Articolo).filter(Articolo.id.in_(ids)).all()
+    for art in articoli:
+        art.n_ddt_uscita = n_ddt
+        art.data_uscita = data_uscita
+        art.stato = 'Uscito'
+        art.pezzo = to_int_safe(request.form.get(f"pezzi_{art.id}", art.pezzo))
+        art.n_colli = to_int_safe(request.form.get(f"colli_{art.id}", art.n_colli))
+        art.peso = to_float_safe(request.form.get(f"peso_{art.id}", art.peso))
+
+    db.session.commit()
+    
+    dest_path = CONFIG_FOLDER / 'destinatari_saved.json'
+    destinatari = {}
+    if dest_path.exists():
+        try:
+            with open(dest_path, 'r', encoding='utf-8') as f:
+                destinatari = json.load(f)
+        except (json.JSONDecodeError, IOError): pass
+
+    destinatario_scelto = destinatari.get(request.form.get('destinatario_key'), {})
+    
+    buffer = io.BytesIO()
+    generate_ddt_pdf(buffer, request.form, articoli, destinatario_scelto)
+    buffer.seek(0)
+    
+    flash(f"Articoli scaricati con DDT N. {n_ddt}. I dati sono stati salvati.", "success")
+    download_name = f'DDT_{n_ddt.replace("/", "-")}.pdf'
+    return send_file(buffer, as_attachment=True, download_name=download_name, mimetype='application/pdf')
+
+@app.route('/ddt/setup', methods=['GET'])
 def ddt_setup():
     if session.get('role') != 'admin': abort(403)
     ids_str = request.args.get('ids', '')
@@ -638,26 +686,6 @@ def ddt_setup():
                 if isinstance(data, dict): destinatari = data
         except (json.JSONDecodeError, IOError): pass
         
-    if request.method == 'POST':
-        n_ddt = request.form.get('n_ddt')
-        if not n_ddt:
-            flash("Il numero del DDT è obbligatorio.", "danger")
-            return render_template('ddt_setup.html', articoli=articoli, ids=ids_str, destinatari=destinatari, today=date.today().isoformat())
-        data_uscita = parse_date_safe(request.form.get('data_uscita')) or date.today()
-        for art in articoli:
-            art.n_ddt_uscita = n_ddt
-            art.data_uscita = data_uscita
-            art.stato = 'Uscito'
-        db.session.commit()
-        buffer = io.BytesIO()
-        ddt_data = request.form.to_dict()
-        ddt_data['n_ddt'] = n_ddt
-        destinatario_scelto = destinatari.get(request.form.get('destinatario_key'), {})
-        generate_ddt_pdf(buffer, ddt_data, articoli, destinatario_scelto)
-        buffer.seek(0)
-        flash(f"Articoli scaricati con DDT N. {n_ddt}. I dati sono stati salvati.", "success")
-        return send_file(buffer, as_attachment=True, download_name=f'DDT_{n_ddt.replace("/", "-")}.pdf', mimetype='application/pdf')
-    
     tot_colli = sum(art.n_colli or 0 for art in articoli)
     tot_peso = sum(art.peso or 0 for art in articoli)
     
@@ -692,6 +720,7 @@ def ddt_preview():
     buffer.seek(0)
     return send_file(buffer, as_attachment=False, download_name='ANTEPRIMA_DDT.pdf', mimetype='application/pdf')
 
+# ========= INIZIO CODICE MODIFICATO PER ETICHETTE =========
 @app.route('/etichetta', methods=['GET'])
 def etichetta_manuale():
     if session.get('role') != 'admin': abort(403)
@@ -700,7 +729,14 @@ def etichetta_manuale():
     if ids_str:
         first_id = ids_str.split(',')[0]
         articolo_selezionato = Articolo.query.get(first_id)
-    return render_template('etichetta_manuale.html', articolo=articolo_selezionato)
+    
+    # Carica la lista di clienti unici per il menu a tendina
+    clienti_query = db.session.query(Articolo.cliente).distinct().order_by(Articolo.cliente).all()
+    clienti = [c[0] for c in clienti_query if c[0]]
+    
+    return render_template('etichetta_manuale.html', articolo=articolo_selezionato, clienti=clienti)
+# ========= FINE CODICE MODIFICATO PER ETICHETTE =========
+
 
 @app.route('/etichetta/preview', methods=['POST'])
 def etichetta_preview():
