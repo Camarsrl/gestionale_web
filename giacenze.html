@@ -4,29 +4,123 @@
   <meta charset="utf-8">
   <title>Giacenze Magazzino</title>
   <style>
-    table, th, td { border: 1px solid black; border-collapse: collapse; }
-    th, td { padding: 6px; }
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f8f9fa;
+      margin: 20px;
+    }
+
+    h2 {
+      margin-bottom: 15px;
+    }
+
+    form {
+      margin-bottom: 15px;
+    }
+
+    input[type="text"] {
+      padding: 6px;
+      width: 250px;
+    }
+
+    button {
+      padding: 6px 10px;
+    }
+
+    .table-container {
+      overflow-x: auto;   /* scroll orizzontale */
+      overflow-y: auto;   /* scroll verticale */
+      max-height: 70vh;   /* altezza massima visibile */
+      border: 1px solid #ccc;
+      background: white;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      min-width: 1200px; /* forza scroll orizzontale se tante colonne */
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 6px;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      background: #e9ecef;
+      z-index: 2;
+    }
+
+    tr:nth-child(even) {
+      background-color: #f2f2f2;
+    }
+
+    .actions {
+      margin: 10px 0;
+    }
+
+    .actions button {
+      margin-right: 10px;
+      padding: 6px 12px;
+    }
   </style>
 </head>
 <body>
-  <h2>Visualizza Giacenze</h2>
+  <h2>📦 Visualizza Giacenze</h2>
+
   <form method="get">
     <input type="text" name="filtro" placeholder="Cerca Codice Articolo" value="{{ filtro }}">
     <button type="submit">Filtra</button>
   </form>
-  <table>
-    <tr>
-      {% for col in articoli[0].keys() %}
-        <th>{{ col }}</th>
-      {% endfor %}
-    </tr>
-    {% for a in articoli %}
-      <tr>
-        {% for col in a.keys() %}
-          <td>{{ a[col] }}</td>
-        {% endfor %}
-      </tr>
-    {% endfor %}
-  </table>
+
+  <form id="selection-form" method="post">
+    <div class="actions">
+      <button type="submit" formaction="{{ url_for('ddt_preview') }}">Crea DDT</button>
+      <button type="submit" formaction="{{ url_for('buono_preview') }}">Crea Buono</button>
+    </div>
+
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="checkall"></th>
+            {% for col in articoli[0].keys() %}
+              <th>{{ col }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in articoli %}
+            <tr>
+              <td><input type="checkbox" name="ids" class="sel" value="{{ a['id_articolo'] }}"></td>
+              {% for col in a.keys() %}
+                <td>{{ a[col] }}</td>
+              {% endfor %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </form>
+
+  <script>
+    // Selezione di tutti i checkbox
+    document.getElementById('checkall').addEventListener('change', e => {
+      document.querySelectorAll('.sel').forEach(cb => cb.checked = e.target.checked);
+    });
+
+    // Verifica che ci siano articoli selezionati
+    document.getElementById('selection-form').addEventListener('submit', function(e) {
+      const selected = [...document.querySelectorAll('.sel:checked')];
+      if (selected.length === 0) {
+        e.preventDefault();
+        alert('Seleziona almeno un articolo!');
+      }
+    });
+  </script>
 </body>
 </html>
