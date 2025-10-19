@@ -1,42 +1,67 @@
 {% extends "layout.html" %}
 
 {% block content %}
-<div class="card p-4">
-    <h3>Crea Buono di Prelievo</h3>
-    <p class="text-muted">Inserisci un numero di buono per gli {{ articoli|length }} articoli selezionati. Verrà generato un PDF e il campo 'Buono N.' verrà aggiornato.</p>
-    <hr>
-    <form method="POST" id="buonoForm">
-        <div class="row g-3">
-            <div class="col-md-4">
-                <label for="buono_n" class="form-label">Numero Buono (*)</label>
-                <input type="text" name="buono_n" id="buono_n" class="form-control" required>
-            </div>
-            <div class="col-md-4">
-                <label for="cliente" class="form-label">Cliente</label>
-                <input type="text" name="cliente" id="cliente" class="form-control" value="{{ primo_articolo.cliente if primo_articolo else '' }}">
-            </div>
-            <div class="col-md-4">
-                <label for="commessa" class="form-label">Commessa</label>
-                <input type="text" name="commessa" id="commessa" class="form-control" value="{{ primo_articolo.commessa if primo_articolo else '' }}">
-            </div>
-             <div class="col-md-4">
-                <label for="protocollo" class="form-label">Protocollo</label>
-                <input type="text" name="protocollo" id="protocollo" class="form-control" value="{{ primo_articolo.protocollo if primo_articolo else '' }}">
-            </div>
-        </div>
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <form method="POST">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0">Crea Buono di Prelievo</h4>
+                        {% if logo_url %}<img src="{{ logo_url }}" alt="Logo" style="height: 40px;">{% endif %}
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-4">
+                                <label for="buono_n" class="form-label">Numero Buono (*)</label>
+                                <input type="text" id="buono_n" name="buono_n" class="form-control" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="cliente" class="form-label">Cliente</label>
+                                <input type="text" id="cliente" name="cliente" class="form-control" value="{{ primo_articolo.cliente if primo_articolo else '' }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="commessa" class="form-label">Commessa</label>
+                                <input type="text" id="commessa" name="commessa" class="form-control" value="{{ primo_articolo.commessa if primo_articolo else '' }}">
+                            </div>
+                             <div class="col-md-4">
+                                <label for="protocollo" class="form-label">Protocollo</label>
+                                <input type="text" id="protocollo" name="protocollo" class="form-control" value="{{ primo_articolo.protocollo if primo_articolo else '' }}">
+                            </div>
+                        </div>
 
-        <div class="mt-4">
-            <button type="submit" class="btn btn-primary">Genera PDF e Salva</button>
-            
-            <button type="submit" 
-                    formaction="{{ url_for('buono_preview', ids=request.args.get('ids')) }}" 
-                    formtarget="_blank" 
-                    class="btn btn-info">
-                Anteprima PDF
-            </button>
-            
-            <a href="{{ url_for('visualizza_giacenze') }}" class="btn btn-secondary">Annulla</a>
+                        <h5>Articoli Selezionati</h5>
+                        <div class="table-responsive" style="max-height: 300px;">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Cod. Articolo</th>
+                                        <th>Descrizione</th>
+                                        <th>Ordine</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for art in articoli %}
+                                    <tr>
+                                        <td>{{ art.id }}</td>
+                                        <td>{{ art.codice_articolo | default('', true) }}</td>
+                                        <td>{{ art.descrizione | default('', true) }}</td>
+                                        <td>{{ art.ordine | default('', true) }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-light text-end">
+                        <a href="{{ url_for('visualizza_giacenze') }}" class="btn btn-secondary">Annulla</a>
+                        <button type="submit" formaction="{{ url_for('buono_preview', ids=ids) }}" formtarget="_blank" class="btn btn-info text-white">Anteprima PDF</button>
+                        <button type="submit" class="btn btn-success">Genera e Salva</button>
+                    </div>
+                </div>
+            </form>
         </div>
-    </form>
+    </div>
 </div>
 {% endblock %}
