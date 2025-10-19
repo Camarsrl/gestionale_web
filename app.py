@@ -888,36 +888,15 @@ def gestione_destinatari():
 
 @app.route('/report', methods=['GET', 'POST'])
 def report():
-    if session.get('role') != 'admin': abort(403)
-    risultato = None
-    if request.method == 'POST':
-        cliente = request.form.get('cliente')
-        mese_anno = request.form.get('mese_anno')
-        if cliente and mese_anno:
-            try:
-                anno, mese = map(int, mese_anno.split('-'))
-                ultimo_giorno_numero = calendar.monthrange(anno, mese)[1]
-                fine_mese = date(anno, mese, ultimo_giorno_numero)
+    try:
+        # Genera o aggiorna il report dei costi
+        report_path = genera_report_costi()  # Assicurati che questa funzione esista
+        flash("Calcolo costi completato con successo.", "success")
+        return render_template('report.html', report_path=report_path)
+    except Exception as e:
+        flash(f"Errore durante il calcolo dei costi: {str(e)}", "danger")
+        return redirect(url_for('visualizza_giacenze'))
 
-                articoli_in_giacenza = Articolo.query.filter(
-                    Articolo.cliente == cliente,
-                    Articolo.data_ingresso <= fine_mese,
-                    (Articolo.data_uscita == None) | (Articolo.data_uscita > fine_mese)
-                ).all()
-                
-                m2_totali = sum(art.m2 or 0 for art in articoli_in_giacenza)
-                
-                if not articoli_in_giacenza:
-                    flash(f"Nessun articolo in giacenza trovato per {cliente} alla fine del periodo {mese:02d}-{anno}.", "info")
-
-                risultato = {
-                    "cliente": cliente, "periodo": f"{mese:02d}-{anno}",
-                    "m2_totali": round(m2_totali, 3), "conteggio_articoli": len(articoli_in_giacenza)
-                }
-            except ValueError:
-                flash("Formato data non valido.", "danger")
-    clienti = db.session.query(Articolo.cliente).distinct().order_by(Articolo.cliente).all()
-    return render_template('report.html', clienti=[c[0] for c in clienti if c[0]], risultato=risultato)
 
 @app.route('/calcolo-costi')
 def calcolo_costi():
