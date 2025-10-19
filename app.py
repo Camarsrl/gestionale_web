@@ -723,40 +723,70 @@ def ddt_preview():
 
 @app.route('/etichetta', methods=['GET'])
 def etichetta_manuale():
-    if session.get('role') != 'admin': abort(403)
+    if session.get('role') != 'admin': 
+        abort(403)
+
     articolo_selezionato = None
     ids_str = request.args.get('ids')
     if ids_str:
         first_id = ids_str.split(',')[0]
         articolo_selezionato = Articolo.query.get(first_id)
-    
+
     clienti_query = db.session.query(Articolo.cliente).distinct().order_by(Articolo.cliente).all()
     clienti = [c[0] for c in clienti_query if c[0]]
-    
+
     return render_template('etichetta_manuale.html', articolo=articolo_selezionato, clienti=clienti)
+
 
 @app.route('/etichetta/preview', methods=['POST'])
 def etichetta_preview():
-    if session.get('role') != 'admin': abort(403)
-    
+    if session.get('role') != 'admin': 
+        abort(403)
+
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=landscape((100*mm, 62*mm)), 
-                            leftMargin=5*mm, rightMargin=5*mm, topMargin=5*mm, bottomMargin=5*mm)
-    
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape((100 * mm, 62 * mm)),
+        leftMargin=5 * mm,
+        rightMargin=5 * mm,
+        topMargin=5 * mm,
+        bottomMargin=5 * mm
+    )
+
     styles = getSampleStyleSheet()
-    styleN = ParagraphStyle(name='NormalSmall', parent=styles['Normal'], fontSize=8, leading=10, spaceAfter=1)
+    styleN = ParagraphStyle(
+        name='NormalSmall',
+        parent=styles['Normal'],
+        fontSize=8,
+        leading=10,
+        spaceAfter=1,
+        alignment=TA_LEFT
+    )
 
     form_data = request.form.to_dict()
-    
-    label_data = []
-    campi_ordinati = ['cliente', 'fornitore', 'ordine', 'commessa', 'n_ddt_ingresso', 'data_ingresso', 'n_arrivo', 'posizione', 'n_colli', 'protocollo']
+    campi_ordinati = [
+        'cliente', 'fornitore', 'ordine', 'commessa',
+        'n_ddt_ingresso', 'data_ingresso', 'n_arrivo',
+        'posizione', 'n_colli', 'protocollo'
+    ]
 
+    elements = []
+
+    # ✅ Logo in alto a sinistra
+    logo_path = STATIC_FOLDER / 'logo camar.jpg'
+    if logo_path.exists():
+        logo = RLImage(logo_path, width=25 * mm, height=15 * mm)
+        elements.append(logo)
+        elements.append(Spacer(1, 3 * mm))
+
+    # ✅ Tabella con dati etichetta
+    label_data = []
     for key in campi_ordinati:
         value = form_data.get(key)
         if value and str(value).strip():
-            value_str = str(value)
+            value_str = str(value).strip()
+            # Tronca se troppo lungo
             value_display = (value_str[:40] + '...') if len(value_str) > 40 else value_str
-            
             label_text = key.replace('_', ' ').replace('n ', 'N. ').title()
             label_p = Paragraph(f"<b>{label_text}:</b>", styleN)
             value_p = Paragraph(value_display, styleN)
@@ -765,23 +795,30 @@ def etichetta_preview():
     if not label_data:
         return "Nessun dato da stampare.", 400
 
-    table = Table(label_data, colWidths=[3*cm, 6*cm])
+    table = Table(label_data, colWidths=[3 * cm, 6 * cm])
     table.setStyle(TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('LEFTPADDING', (0,0), (-1,-1), 0),
-        ('RIGHTPADDING', (0,0), (-1,-1), 0),
-        ('TOPPADDING', (0,0), (-1,-1), 1),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 2),
+        ('TOPPADDING', (0, 0), (-1, -1), 1),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
     ]))
 
+    elements.append(table)
+
     try:
-        doc.build([table])
+        doc.build(elements)
     except Exception as e:
-        logging.error(f"Errore generazione etichetta con tabella: {e}")
-        return "Errore: il testo è ancora troppo lungo per entrare nell'etichetta.", 400
-        
+        logging.error(f"Errore generazione etichetta: {e}")
+        return "Errore: il testo è troppo lungo per entrare nell'etichetta.", 400
+
     buffer.seek(0)
-    return send_file(buffer, as_attachment=False, download_name='Anteprima_Etichetta.pdf', mimetype='application/pdf')
+    return send_file(
+        buffer,
+        as_attachment=False,
+        download_name='Anteprima_Etichetta.pdf',
+        mimetype='application/pdf'
+    )
 
 
 @app.route('/articolo/duplica')
