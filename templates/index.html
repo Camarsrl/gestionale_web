@@ -9,21 +9,25 @@
         /* Calcola l'altezza per riempire lo schermo meno la navbar/footer */
         height: calc(100vh - 120px);
     }
-
+    .card.flex-grow-1 {
+        display: flex;
+        flex-direction: column;
+    }
+    .card-body.d-flex {
+        flex-grow: 1;
+        min-height: 0; /* Fondamentale per far funzionare lo scroll interno */
+    }
     .table-container {
-        flex-grow: 1; /* Permette al contenitore della tabella di espandersi */
         overflow: auto; /* Aggiunge scroll sia orizzontale che verticale */
-        position: relative;
+        flex-grow: 1;
         border: 1px solid #ddd;
         border-radius: 6px;
     }
-
     .table-giacenze {
         table-layout: fixed; /* Mantiene le larghezze delle colonne fisse */
         min-width: 2900px; /* Larghezza minima totale per forzare lo scroll orizzontale */
         font-size: 0.875rem; /* Testo leggermente più piccolo */
     }
-
     /* Intestazioni della tabella sempre visibili durante lo scroll verticale */
     .table-giacenze thead th {
         position: sticky;
@@ -31,12 +35,10 @@
         z-index: 2;
         background-color: #e9ecef; /* Sfondo per le intestazioni */
     }
-
     /* Colori delle righe alternati per migliore leggibilità */
     .table-giacenze tbody tr:nth-child(even) {
         background-color: #f8f9fa;
     }
-
     /* Stile per il testo nelle celle per andare a capo correttamente */
     .table-giacenze th,
     .table-giacenze td {
@@ -44,7 +46,6 @@
         white-space: normal !important;
         word-wrap: break-word !important;
     }
-
     /* Larghezze fisse per ogni colonna */
     .col-check { width: 40px; }
     .col-azioni { width: 70px; }
@@ -121,82 +122,80 @@
                 <button type="button" class="btn btn-sm btn-danger" onclick="deleteSelected()">Elimina Selez.</button>
             </div>
 
-            <form id="bulk-form" class="flex-grow-1" style="min-height: 0;">
-                <div class="table-container h-100">
-                    <table class="table table-bordered table-hover table-sm table-giacenze">
-                        <thead>
-                            <tr class="table-light">
-                                <th class="col-check"><input type="checkbox" id="select-all" class="form-check-input"></th>
-                                <th class="col-azioni">Azioni</th>
-                                <th class="col-id">ID</th>
-                                <th class="col-codice">Codice Articolo</th>
-                                <th class="col-desc">Descrizione</th>
-                                <th class="col-cliente">Cliente</th>
-                                <th class="col-fornitore">Fornitore</th>
-                                <th class="col-data">Data Ingresso</th>
-                                <th class="col-stato">Stato</th>
-                                <th class="col-ddt">DDT Ingresso</th>
-                                <th class="col-ddt">DDT Uscita</th>
-                                <th class="col-data">Data Uscita</th>
-                                <th class="col-buono">Buono N.</th>
-                                <th class="col-misure">Larghezza</th>
-                                <th class="col-misure">Lunghezza</th>
-                                <th class="col-misure">Altezza</th>
-                                <th class="col-misure">m²</th>
-                                <th class="col-misure">m³</th>
-                                <th class="col-commessa">Commessa</th>
-                                <th class="col-ordine">Ordine</th>
-                                <th class="col-misure">N. Colli</th>
-                                <th class="col-misure">Peso</th>
-                                <th class="col-posizione">Posizione</th>
-                                <th class="col-protocollo">Protocollo</th>
-                                <th class="col-serial">Serial Number</th>
-                                <th class="col-narrivo">N. Arrivo</th>
-                                <th class="col-nsrif">Ns. Rif.</th>
-                                <th class="col-mezzo">Mezzo in Uscita</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for articolo in articoli %}
-                            <tr>
-                                <td><input type="checkbox" name="ids" value="{{ articolo.id }}" class="form-check-input"></td>
-                                <td><a href="{{ url_for('edit_articolo', id=articolo.id) }}" class="btn btn-sm btn-primary">Mod.</a></td>
-                                <td>{{ articolo.id }}</td>
-                                <td>{{ articolo.codice_articolo }}</td>
-                                <td>{{ articolo.descrizione }}</td>
-                                <td>{{ articolo.cliente }}</td>
-                                <td>{{ articolo.fornitore }}</td>
-                                <td>{{ articolo.data_ingresso.strftime('%d/%m/%Y') if articolo.data_ingresso }}</td>
-                                <td>{{ articolo.stato }}</td>
-                                <td>{{ articolo.n_ddt_ingresso }}</td>
-                                <td>{{ articolo.n_ddt_uscita }}</td>
-                                <td>{{ articolo.data_uscita.strftime('%d/%m/%Y') if articolo.data_uscita }}</td>
-                                <td>{{ articolo.buono_n }}</td>
-                                <td>{{ articolo.larghezza }}</td>
-                                <td>{{ articolo.lunghezza }}</td>
-                                <td>{{ articolo.altezza }}</td>
-                                <td>{{ articolo.m2 }}</td>
-                                <td>{{ articolo.m3 }}</td>
-                                <td>{{ articolo.commessa }}</td>
-                                <td>{{ articolo.ordine }}</td>
-                                <td>{{ articolo.n_colli }}</td>
-                                <td>{{ articolo.peso }}</td>
-                                <td>{{ articolo.posizione }}</td>
-                                <td>{{ articolo.protocollo }}</td>
-                                <td>{{ articolo.serial_number }}</td>
-                                <td>{{ articolo.n_arrivo }}</td>
-                                <td>{{ articolo.ns_rif }}</td>
-                                <td>{{ articolo.mezzi_in_uscita }}</td>
-                            </tr>
-                            {% else %}
-                            <tr>
-                                <td colspan="28" class="text-center">Nessun articolo trovato.</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </form>
+            <div class="table-container">
+                <table class="table table-bordered table-hover table-sm table-giacenze">
+                    <thead>
+                        <tr class="table-light">
+                            <th class="col-check"><input type="checkbox" id="select-all" class="form-check-input"></th>
+                            <th class="col-azioni">Azioni</th>
+                            <th class="col-id">ID</th>
+                            <th class="col-codice">Codice Articolo</th>
+                            <th class="col-desc">Descrizione</th>
+                            <th class="col-cliente">Cliente</th>
+                            <th class="col-fornitore">Fornitore</th>
+                            <th class="col-data">Data Ingresso</th>
+                            <th class="col-stato">Stato</th>
+                            <th class="col-ddt">DDT Ingresso</th>
+                            <th class="col-ddt">DDT Uscita</th>
+                            <th class="col-data">Data Uscita</th>
+                            <th class="col-buono">Buono N.</th>
+                            <th class="col-misure">Larghezza</th>
+                            <th class="col-misure">Lunghezza</th>
+                            <th class="col-misure">Altezza</th>
+                            <th class="col-misure">m²</th>
+                            <th class="col-misure">m³</th>
+                            <th class="col-commessa">Commessa</th>
+                            <th class="col-ordine">Ordine</th>
+                            <th class="col-misure">N. Colli</th>
+                            <th class="col-misure">Peso</th>
+                            <th class="col-posizione">Posizione</th>
+                            <th class="col-protocollo">Protocollo</th>
+                            <th class="col-serial">Serial Number</th>
+                            <th class="col-narrivo">N. Arrivo</th>
+                            <th class="col-nsrif">Ns. Rif.</th>
+                            <th class="col-mezzo">Mezzo in Uscita</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for articolo in articoli %}
+                        <tr>
+                            <td><input type="checkbox" name="ids" value="{{ articolo.id }}" class="form-check-input"></td>
+                            <td><a href="{{ url_for('edit_articolo', id=articolo.id) }}" class="btn btn-sm btn-primary">Mod.</a></td>
+                            <td>{{ articolo.id }}</td>
+                            <td>{{ articolo.codice_articolo }}</td>
+                            <td>{{ articolo.descrizione }}</td>
+                            <td>{{ articolo.cliente }}</td>
+                            <td>{{ articolo.fornitore }}</td>
+                            <td>{{ articolo.data_ingresso.strftime('%d/%m/%Y') if articolo.data_ingresso }}</td>
+                            <td>{{ articolo.stato }}</td>
+                            <td>{{ articolo.n_ddt_ingresso }}</td>
+                            <td>{{ articolo.n_ddt_uscita }}</td>
+                            <td>{{ articolo.data_uscita.strftime('%d/%m/%Y') if articolo.data_uscita }}</td>
+                            <td>{{ articolo.buono_n }}</td>
+                            <td>{{ articolo.larghezza }}</td>
+                            <td>{{ articolo.lunghezza }}</td>
+                            <td>{{ articolo.altezza }}</td>
+                            <td>{{ articolo.m2 }}</td>
+                            <td>{{ articolo.m3 }}</td>
+                            <td>{{ articolo.commessa }}</td>
+                            <td>{{ articolo.ordine }}</td>
+                            <td>{{ articolo.n_colli }}</td>
+                            <td>{{ articolo.peso }}</td>
+                            <td>{{ articolo.posizione }}</td>
+                            <td>{{ articolo.protocollo }}</td>
+                            <td>{{ articolo.serial_number }}</td>
+                            <td>{{ articolo.n_arrivo }}</td>
+                            <td>{{ articolo.ns_rif }}</td>
+                            <td>{{ articolo.mezzi_in_uscita }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="28" class="text-center">Nessun articolo trovato.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
         <div class="card-footer mt-auto">
             <strong>Totali merce in giacenza:</strong>
