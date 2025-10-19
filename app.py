@@ -181,108 +181,75 @@ def generate_buono_prelievo_pdf(buffer, dati_buono, articoli):
     story.append(Paragraph("Firma Cliente: ________________________", style_body))
     doc.build(story)
 
-
 def generate_ddt_pdf(buffer, ddt_data, articoli, destinatario_info):
     doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1*cm, bottomMargin=2.5*cm, leftMargin=1.5*cm, rightMargin=1.5*cm)
     story = []
     styles = getSampleStyleSheet()
     body_style = ParagraphStyle(name='BodyWrap', parent=styles['Normal'], fontSize=8, leading=10)
-
-    # Header: logo + mittente
+    
+    styles.add(ParagraphStyle(name='HeaderText', parent=styles['Normal'], alignment=TA_LEFT, leading=12))
     logo_path = STATIC_FOLDER / 'logo camar.jpg'
     logo = RLImage(logo_path, width=6*cm, height=3*cm) if logo_path.exists() else Spacer(0, 0)
-
     mittente_text = """<b>CAMAR S.R.L.</b><br/>Via Luigi Canepa, 2<br/>16165 Genova (GE)<br/>P.IVA / C.F. 03429300101"""
-    mittente_p = Paragraph(mittente_text, body_style)
-
-    header_table = Table([[logo, mittente_p]], colWidths=[7*cm, 11*cm])
-    header_table.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-    ]))
+    mittente_p = Paragraph(mittente_text, styles['HeaderText'])
+    header_table = Table([[logo, mittente_p]], colWidths=[7*cm, 11*cm], style=[('VALIGN', (0,0), (-1,-1), 'TOP')])
     story.append(header_table)
-    story.append(Spacer(1, 0.6*cm))
-
-    # Dati destinatario e DDT
-    dest_text = f"""
-    <b>Spett.le</b><br/>
-    {destinatario_info.get('ragione_sociale', '')}<br/>
-    {destinatario_info.get('indirizzo', '')}<br/>
-    P.IVA: {destinatario_info.get('piva', '')}
-    """
-    dest_p = Paragraph(dest_text, body_style)
-
+    story.append(Spacer(1, 1*cm))
+    
+    dest_rag_soc = destinatario_info.get('ragione_sociale', '')
+    dest_indirizzo = destinatario_info.get('indirizzo', '')
+    dest_piva = destinatario_info.get('piva', '')
+    destinatario_text = f"""<b>Spett.le</b><br/>{dest_rag_soc}<br/>{dest_indirizzo}<br/>P.IVA: {dest_piva}"""
+    destinatario_p = Paragraph(destinatario_text, styles['HeaderText'])
+    
+    data_uscita_str = ""
     data_uscita_obj = parse_date_safe(ddt_data.get('data_uscita'))
-    data_uscita_str = data_uscita_obj.strftime('%d/%m/%Y') if data_uscita_obj else ''
-
-    ddt_details_text = f"""
-    <b>DOCUMENTO DI TRASPORTO</b><br/>
-    <b>DDT N°:</b> {ddt_data.get('n_ddt', 'N/A')}<br/>
-    <b>Data:</b> {data_uscita_str}<br/>
-    """
-    ddt_p = Paragraph(ddt_details_text, body_style)
-
-    details_table = Table([[dest_p, ddt_p]], colWidths=[10*cm, 8*cm])
-    details_table.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
-    ]))
+    if data_uscita_obj:
+        data_uscita_str = data_uscita_obj.strftime('%d/%m/%Y')
+    ddt_details_text = f"""<b>DOCUMENTO DI TRASPORTO</b><br/><b>DDT N°:</b> {ddt_data.get('n_ddt', 'N/A')}<br/><b>Data:</b> {data_uscita_str}<br/>"""
+    ddt_details_p = Paragraph(ddt_details_text, styles['HeaderText'])
+    details_table = Table([[destinatario_p, ddt_details_p]], colWidths=[10*cm, 8*cm], style=[('VALIGN', (0,0), (-1,-1), 'TOP')])
     story.append(details_table)
-    story.append(Spacer(1, 0.8*cm))
-
-    # Tabella articoli
-    table_header = ['Descrizione della merce', 'Cod. Articolo', 'Commessa', 'Q.tà Colli', 'Peso Lordo Kg']
-    table_data = [table_header]
+    story.append(Spacer(1, 1*cm))
+    
+    table_data_header = [['Descrizione della merce', 'Cod. Articolo', 'Commessa', 'Q.tà Colli', 'Peso Lordo Kg']]
+    table_data_rows = []
     total_colli = 0
     total_peso = 0.0
-
     for art in articoli:
-        n_colli = art.n_colli or 0
-        peso = art.peso or 0.0
-        table_data.append([
+        table_data_rows.append([
             Paragraph(art.descrizione or '', body_style),
             Paragraph(art.codice_articolo or '', body_style),
             Paragraph(art.commessa or '', body_style),
-            n_colli,
-            peso
+            art.n_colli or 0,
+            art.peso or 0.0
         ])
-        total_colli += n_colli
-        total_peso += peso
-
-    article_table = Table(table_data, colWidths=[7*cm, 3*cm, 3*cm, 2*cm, 3*cm])
+        total_colli += art.n_colli or 0
+        total_peso += art.peso or 0.0
+        
+    full_table_data = table_data_header + table_data_rows
+    article_table = Table(full_table_data, colWidths=[7*cm, 3*cm, 3*cm, 2*cm, 3*cm])
     article_table.setStyle(TableStyle([
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('ALIGN', (3, 1), (-1, -1), 'CENTER'),
+        ('BACKGROUND', (0,0), (-1,0), colors.lightgrey), ('GRID', (0,0), (-1,-1), 1, colors.black),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('ALIGN', (3,1), (-1,-1), 'CENTER'),
     ]))
     story.append(article_table)
-    story.append(Spacer(1, 0.8*cm))
-
-    # Riepilogo e causale
-    story.append(Paragraph(f"<b>Causale del trasporto:</b> {ddt_data.get('causale_trasporto', 'C/Lavorazione')}", body_style))
     story.append(Spacer(1, 0.5*cm))
-    story.append(Paragraph(
-        f"<b>Aspetto dei beni:</b> {ddt_data.get('aspetto_beni', 'Scatole/Pallet')}<br/>"
-        f"<b>Totale Colli:</b> {total_colli}<br/>"
-        f"<b>Peso Totale Lordo Kg:</b> {total_peso:.2f}", body_style))
-    story.append(Spacer(1, 1.8*cm))
-
-    # Firme
-    firma_table = Table([
-        ['<b>Firma Vettore</b>', '<b>Firma Destinatario</b>'],
-        [Spacer(1, 2*cm), Spacer(1, 2*cm)],
+    
+    body_text_style = styles['Normal']
+    causale = Paragraph(f"<b>Causale del trasporto:</b> {ddt_data.get('causale_trasporto', 'C/Lavorazione')}", body_text_style)
+    story.append(causale)
+    story.append(Spacer(1, 1*cm))
+    summary_text = f"""<b>Aspetto dei beni:</b> {ddt_data.get('aspetto_beni', 'Scatole/Pallet')}<br/><b>Totale Colli:</b> {total_colli}<br/><b>Peso Totale Lordo Kg:</b> {total_peso:.2f}<br/>"""
+    summary_p = Paragraph(summary_text, body_text_style)
+    story.append(summary_p)
+    story.append(Spacer(1, 2*cm))
+    signature_table = Table([
+        ['<b>Firma Vettore</b>', '<b>Firma Destinatario</b>'], [Spacer(1, 2*cm), Spacer(1, 2*cm)],
         ['___________________', '___________________']
-    ], colWidths=[9*cm, 9*cm])
-    firma_table.setStyle(TableStyle([
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-    ]))
-    story.append(firma_table)
-
+    ], colWidths=[9*cm, 9*cm], style=[('ALIGN', (0,0), (-1,-1), 'CENTER')])
+    story.append(signature_table)
     doc.build(story)
 
 def send_email_with_attachments(to_address, subject, body_html, attachments):
@@ -366,7 +333,7 @@ def visualizza_giacenze():
                     try:
                         query = query.filter(Articolo.id == int(value))
                     except ValueError:
-                        pass 
+                        pass
                 else:
                     query = query.filter(getattr(Articolo, key).ilike(f"%{value}%"))
 
@@ -403,7 +370,7 @@ def populate_articolo_from_form(articolo, form):
             'n_colli': form.get('n_colli')
         }
         articolo.m2, articolo.m3 = calculate_m2_m3(calc_data)
-        
+
     return articolo
 
 @app.route('/articolo/nuovo', methods=['GET', 'POST'])
@@ -628,11 +595,11 @@ def next_ddt_number():
                 progressivi = json.load(f)
         except (IOError, json.JSONDecodeError):
             progressivi = {}
-    
+
     last_num = progressivi.get(year_short, 0)
     next_num = last_num + 1
     progressivi[year_short] = next_num
-    
+
     try:
         with open(prog_file, 'w') as f:
             json.dump(progressivi, f)
@@ -650,7 +617,7 @@ def get_next_ddt_number():
 def ddt_finalize():
     if session.get('role') != 'admin':
         abort(403)
-    
+
     ids_str = request.form.get('ids', '')
     if not ids_str:
         flash("Nessun articolo specificato per il DDT.", "warning")
@@ -675,7 +642,7 @@ def ddt_finalize():
         art.peso = to_float_safe(request.form.get(f"peso_{art.id}", art.peso))
 
     db.session.commit()
-    
+
     dest_path = CONFIG_FOLDER / 'destinatari_saved.json'
     destinatari = {}
     if dest_path.exists():
@@ -685,11 +652,11 @@ def ddt_finalize():
         except (json.JSONDecodeError, IOError): pass
 
     destinatario_scelto = destinatari.get(request.form.get('destinatario_key'), {})
-    
+
     buffer = io.BytesIO()
     generate_ddt_pdf(buffer, request.form, articoli, destinatario_scelto)
     buffer.seek(0)
-    
+
     flash(f"Articoli aggiornati con DDT N. {n_ddt}. I dati sono stati salvati.", "success")
     download_name = f'DDT_{n_ddt.replace("/", "-")}.pdf'
     return send_file(buffer, as_attachment=True, download_name=download_name, mimetype='application/pdf')
@@ -701,13 +668,13 @@ def ddt_setup():
     if not ids_str: return redirect(url_for('visualizza_giacenze'))
     ids = [int(i) for i in ids_str.split(',')]
     articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
-    
+
     articoli_gia_usciti = [art.id for art in articoli if art.data_uscita is not None]
     if articoli_gia_usciti:
         flash(f"Attenzione: Gli articoli ID {articoli_gia_usciti} risultano già spediti (hanno una data di uscita).", "warning")
         articoli = [art for art in articoli if art.data_uscita is None]
         ids_str = ','.join(map(str, [art.id for art in articoli]))
-        if not articoli: 
+        if not articoli:
             return redirect(url_for('visualizza_giacenze'))
 
     dest_path = CONFIG_FOLDER / 'destinatari_saved.json'
@@ -718,14 +685,14 @@ def ddt_setup():
                 data = json.load(f)
                 if isinstance(data, dict): destinatari = data
         except (json.JSONDecodeError, IOError): pass
-        
+
     tot_colli = sum(art.n_colli or 0 for art in articoli)
     tot_peso = sum(art.peso or 0 for art in articoli)
-    
-    return render_template('ddt_setup.html', 
-        articoli=articoli, 
-        ids=ids_str, 
-        destinatari=destinatari, 
+
+    return render_template('ddt_setup.html',
+        articoli=articoli,
+        ids=ids_str,
+        destinatari=destinatari,
         today=date.today().isoformat(),
         tot_colli=tot_colli,
         tot_peso=tot_peso)
@@ -755,7 +722,7 @@ def ddt_preview():
 
 @app.route('/etichetta', methods=['GET'])
 def etichetta_manuale():
-    if session.get('role') != 'admin': 
+    if session.get('role') != 'admin':
         abort(403)
 
     articolo_selezionato = None
@@ -769,10 +736,9 @@ def etichetta_manuale():
 
     return render_template('etichetta_manuale.html', articolo=articolo_selezionato, clienti=clienti)
 
-
 @app.route('/etichetta/preview', methods=['POST'])
 def etichetta_preview():
-    if session.get('role') != 'admin': 
+    if session.get('role') != 'admin':
         abort(403)
 
     buffer = io.BytesIO()
@@ -804,20 +770,19 @@ def etichetta_preview():
 
     elements = []
 
-    # ✅ Logo in alto a sinistra
+    # Logo in alto
     logo_path = STATIC_FOLDER / 'logo camar.jpg'
     if logo_path.exists():
         logo = RLImage(logo_path, width=25 * mm, height=15 * mm)
         elements.append(logo)
         elements.append(Spacer(1, 3 * mm))
 
-    # ✅ Tabella con dati etichetta
+    # Tabella con i dati
     label_data = []
     for key in campi_ordinati:
         value = form_data.get(key)
         if value and str(value).strip():
             value_str = str(value).strip()
-            # Tronca se troppo lungo
             value_display = (value_str[:40] + '...') if len(value_str) > 40 else value_str
             label_text = key.replace('_', ' ').replace('n ', 'N. ').title()
             label_p = Paragraph(f"<b>{label_text}:</b>", styleN)
@@ -851,7 +816,6 @@ def etichetta_preview():
         download_name='Anteprima_Etichetta.pdf',
         mimetype='application/pdf'
     )
-
 
 @app.route('/articolo/duplica')
 def duplica_articolo():
@@ -915,7 +879,7 @@ def edit_multiple():
                     setattr(art, field, to_int_safe(value))
                 else:
                     setattr(art, field, value)
-            
+
             art_form_data = {col.name: getattr(art, col.name) for col in art.__table__.columns}
             art.m2, art.m3 = calculate_m2_m3(art_form_data)
 
@@ -955,17 +919,41 @@ def gestione_destinatari():
         return redirect(url_for('gestione_destinatari'))
     return render_template('destinatari.html', destinatari=destinatari)
 
+# --- FUNZIONE REPORT CORRETTA ---
+# La versione precedente chiamava una funzione non esistente (genera_report_costi).
+# Ho ripristinato la versione corretta che permette di calcolare la giacenza per cliente/mese.
 @app.route('/report', methods=['GET', 'POST'])
 def report():
-    try:
-        # Genera o aggiorna il report dei costi
-        report_path = genera_report_costi()  # Assicurati che questa funzione esista
-        flash("Calcolo costi completato con successo.", "success")
-        return render_template('report.html', report_path=report_path)
-    except Exception as e:
-        flash(f"Errore durante il calcolo dei costi: {str(e)}", "danger")
-        return redirect(url_for('visualizza_giacenze'))
+    if session.get('role') != 'admin': abort(403)
+    risultato = None
+    if request.method == 'POST':
+        cliente = request.form.get('cliente')
+        mese_anno = request.form.get('mese_anno')
+        if cliente and mese_anno:
+            try:
+                anno, mese = map(int, mese_anno.split('-'))
+                ultimo_giorno_numero = calendar.monthrange(anno, mese)[1]
+                fine_mese = date(anno, mese, ultimo_giorno_numero)
 
+                articoli_in_giacenza = Articolo.query.filter(
+                    Articolo.cliente == cliente,
+                    Articolo.data_ingresso <= fine_mese,
+                    (Articolo.data_uscita == None) | (Articolo.data_uscita > fine_mese)
+                ).all()
+
+                m2_totali = sum(art.m2 or 0 for art in articoli_in_giacenza)
+
+                if not articoli_in_giacenza:
+                    flash(f"Nessun articolo in giacenza trovato per {cliente} alla fine del periodo {mese:02d}-{anno}.", "info")
+
+                risultato = {
+                    "cliente": cliente, "periodo": f"{mese:02d}-{anno}",
+                    "m2_totali": round(m2_totali, 3), "conteggio_articoli": len(articoli_in_giacenza)
+                }
+            except ValueError:
+                flash("Formato data non valido.", "danger")
+    clienti = db.session.query(Articolo.cliente).distinct().order_by(Articolo.cliente).all()
+    return render_template('report.html', clienti=[c[0] for c in clienti if c[0]], risultato=risultato)
 
 @app.route('/calcolo-costi')
 def calcolo_costi():
