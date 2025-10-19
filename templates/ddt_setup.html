@@ -10,8 +10,7 @@
 
 
 {% block content %}
-<form method="POST" id="ddt-form">
-    <input type="hidden" name="ids" value="{{ ids }}">
+<form method="POST" id="ddt-form" action="{{ url_for('ddt_finalize', ids=ids) }}">
     <div class="card shadow-sm">
         <div class="card-header bg-light d-flex justify-content-between align-items-center">
             <h4 class="mb-0">Documento di Trasporto</h4>
@@ -19,7 +18,7 @@
                 <button type="submit" formaction="{{ url_for('ddt_preview', ids=ids) }}" formtarget="_blank" class="btn btn-primary">
                     <i class="bi bi-printer me-2"></i>Genera PDF (Anteprima)
                 </button>
-                <button type="button" onclick="submitFinalize()" class="btn btn-success">
+                <button type="submit" class="btn btn-success">
                     <i class="bi bi-check-circle-fill me-2"></i>Finalizza e Scarica DDT
                 </button>
             </div>
@@ -116,7 +115,6 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Funzione per caricare il prossimo numero di DDT
     function fetchNextDDT() {
         fetch('{{ url_for("get_next_ddt_number") }}')
             .then(response => response.json())
@@ -128,25 +126,9 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(error => console.error('Errore nel recupero del numero DDT:', error));
     }
 
-    // Associa l'evento al pulsante con l'icona
     document.getElementById('get-next-ddt').addEventListener('click', fetchNextDDT);
     
-    // Carica il primo numero all'avvio della pagina
     fetchNextDDT();
 });
-
-// Funzione per finalizzare e scaricare il DDT
-function submitFinalize() {
-    const form = document.getElementById('ddt-form');
-    if (!form.checkValidity()) {
-        form.reportValidity();
-        return;
-    }
-
-    // Imposta l'azione del form per finalizzare
-    form.action = '{{ url_for("ddt_finalize", ids=ids) }}';
-    form.target = '_self'; // Apri nello stesso tab
-    form.submit();
-}
 </script>
 {% endblock %}
