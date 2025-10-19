@@ -187,70 +187,102 @@ def generate_ddt_pdf(buffer, ddt_data, articoli, destinatario_info):
     story = []
     styles = getSampleStyleSheet()
     body_style = ParagraphStyle(name='BodyWrap', parent=styles['Normal'], fontSize=8, leading=10)
-    
-    styles.add(ParagraphStyle(name='HeaderText', parent=styles['Normal'], alignment=TA_LEFT, leading=12))
+
+    # Header: logo + mittente
     logo_path = STATIC_FOLDER / 'logo camar.jpg'
     logo = RLImage(logo_path, width=6*cm, height=3*cm) if logo_path.exists() else Spacer(0, 0)
+
     mittente_text = """<b>CAMAR S.R.L.</b><br/>Via Luigi Canepa, 2<br/>16165 Genova (GE)<br/>P.IVA / C.F. 03429300101"""
-    mittente_p = Paragraph(mittente_text, styles['HeaderText'])
-    header_table = Table([[logo, mittente_p]], colWidths=[7*cm, 11*cm], style=[('VALIGN', (0,0), (-1,-1), 'TOP')])
+    mittente_p = Paragraph(mittente_text, body_style)
+
+    header_table = Table([[logo, mittente_p]], colWidths=[7*cm, 11*cm])
+    header_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    ]))
     story.append(header_table)
-    story.append(Spacer(1, 1*cm))
-    
-    dest_rag_soc = destinatario_info.get('ragione_sociale', '')
-    dest_indirizzo = destinatario_info.get('indirizzo', '')
-    dest_piva = destinatario_info.get('piva', '')
-    destinatario_text = f"""<b>Spett.le</b><br/>{dest_rag_soc}<br/>{dest_indirizzo}<br/>P.IVA: {dest_piva}"""
-    destinatario_p = Paragraph(destinatario_text, styles['HeaderText'])
-    
-    data_uscita_str = ""
+    story.append(Spacer(1, 0.6*cm))
+
+    # Dati destinatario e DDT
+    dest_text = f"""
+    <b>Spett.le</b><br/>
+    {destinatario_info.get('ragione_sociale', '')}<br/>
+    {destinatario_info.get('indirizzo', '')}<br/>
+    P.IVA: {destinatario_info.get('piva', '')}
+    """
+    dest_p = Paragraph(dest_text, body_style)
+
     data_uscita_obj = parse_date_safe(ddt_data.get('data_uscita'))
-    if data_uscita_obj:
-        data_uscita_str = data_uscita_obj.strftime('%d/%m/%Y')
-    ddt_details_text = f"""<b>DOCUMENTO DI TRASPORTO</b><br/><b>DDT N°:</b> {ddt_data.get('n_ddt', 'N/A')}<br/><b>Data:</b> {data_uscita_str}<br/>"""
-    ddt_details_p = Paragraph(ddt_details_text, styles['HeaderText'])
-    details_table = Table([[destinatario_p, ddt_details_p]], colWidths=[10*cm, 8*cm], style=[('VALIGN', (0,0), (-1,-1), 'TOP')])
+    data_uscita_str = data_uscita_obj.strftime('%d/%m/%Y') if data_uscita_obj else ''
+
+    ddt_details_text = f"""
+    <b>DOCUMENTO DI TRASPORTO</b><br/>
+    <b>DDT N°:</b> {ddt_data.get('n_ddt', 'N/A')}<br/>
+    <b>Data:</b> {data_uscita_str}<br/>
+    """
+    ddt_p = Paragraph(ddt_details_text, body_style)
+
+    details_table = Table([[dest_p, ddt_p]], colWidths=[10*cm, 8*cm])
+    details_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+    ]))
     story.append(details_table)
-    story.append(Spacer(1, 1*cm))
-    
-    table_data_header = [['Descrizione della merce', 'Cod. Articolo', 'Commessa', 'Q.tà Colli', 'Peso Lordo Kg']]
-    table_data_rows = []
+    story.append(Spacer(1, 0.8*cm))
+
+    # Tabella articoli
+    table_header = ['Descrizione della merce', 'Cod. Articolo', 'Commessa', 'Q.tà Colli', 'Peso Lordo Kg']
+    table_data = [table_header]
     total_colli = 0
     total_peso = 0.0
+
     for art in articoli:
-        table_data_rows.append([
+        n_colli = art.n_colli or 0
+        peso = art.peso or 0.0
+        table_data.append([
             Paragraph(art.descrizione or '', body_style),
             Paragraph(art.codice_articolo or '', body_style),
             Paragraph(art.commessa or '', body_style),
-            art.n_colli or 0,
-            art.peso or 0.0
+            n_colli,
+            peso
         ])
-        total_colli += art.n_colli or 0
-        total_peso += art.peso or 0.0
-        
-    full_table_data = table_data_header + table_data_rows
-    article_table = Table(full_table_data, colWidths=[7*cm, 3*cm, 3*cm, 2*cm, 3*cm])
+        total_colli += n_colli
+        total_peso += peso
+
+    article_table = Table(table_data, colWidths=[7*cm, 3*cm, 3*cm, 2*cm, 3*cm])
     article_table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.lightgrey), ('GRID', (0,0), (-1,-1), 1, colors.black),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('ALIGN', (3,1), (-1,-1), 'CENTER'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('ALIGN', (3, 1), (-1, -1), 'CENTER'),
     ]))
     story.append(article_table)
+    story.append(Spacer(1, 0.8*cm))
+
+    # Riepilogo e causale
+    story.append(Paragraph(f"<b>Causale del trasporto:</b> {ddt_data.get('causale_trasporto', 'C/Lavorazione')}", body_style))
     story.append(Spacer(1, 0.5*cm))
-    
-    body_text_style = styles['Normal']
-    causale = Paragraph(f"<b>Causale del trasporto:</b> {ddt_data.get('causale_trasporto', 'C/Lavorazione')}", body_text_style)
-    story.append(causale)
-    story.append(Spacer(1, 1*cm))
-    summary_text = f"""<b>Aspetto dei beni:</b> {ddt_data.get('aspetto_beni', 'Scatole/Pallet')}<br/><b>Totale Colli:</b> {total_colli}<br/><b>Peso Totale Lordo Kg:</b> {total_peso:.2f}<br/>"""
-    summary_p = Paragraph(summary_text, body_text_style)
-    story.append(summary_p)
-    story.append(Spacer(1, 2*cm))
-    signature_table = Table([
-        ['<b>Firma Vettore</b>', '<b>Firma Destinatario</b>'], [Spacer(1, 2*cm), Spacer(1, 2*cm)],
+    story.append(Paragraph(
+        f"<b>Aspetto dei beni:</b> {ddt_data.get('aspetto_beni', 'Scatole/Pallet')}<br/>"
+        f"<b>Totale Colli:</b> {total_colli}<br/>"
+        f"<b>Peso Totale Lordo Kg:</b> {total_peso:.2f}", body_style))
+    story.append(Spacer(1, 1.8*cm))
+
+    # Firme
+    firma_table = Table([
+        ['<b>Firma Vettore</b>', '<b>Firma Destinatario</b>'],
+        [Spacer(1, 2*cm), Spacer(1, 2*cm)],
         ['___________________', '___________________']
-    ], colWidths=[9*cm, 9*cm], style=[('ALIGN', (0,0), (-1,-1), 'CENTER')])
-    story.append(signature_table)
+    ], colWidths=[9*cm, 9*cm])
+    firma_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    story.append(firma_table)
+
     doc.build(story)
 
 def send_email_with_attachments(to_address, subject, body_html, attachments):
