@@ -2,53 +2,70 @@
 
 {% block custom_css %}
 <style>
-    /* Stile per dare un layout a tutta pagina e con tabella scrollabile */
+    /* Layout a tutta altezza */
     .content-wrapper {
         display: flex;
         flex-direction: column;
-        /* Calcola l'altezza per riempire lo schermo meno la navbar/footer */
         height: calc(100vh - 120px);
     }
+
+    /* La card principale riempie lo spazio verticale */
     .card.flex-grow-1 {
         display: flex;
         flex-direction: column;
+        flex-grow: 1;
     }
+
+    /* Corpo della card con scroll interno */
     .card-body.d-flex {
         flex-grow: 1;
-        min-height: 0; /* Fondamentale per far funzionare lo scroll interno */
+        min-height: 0;
     }
+
+    /* Contenitore della tabella con scroll orizzontale e verticale */
     .table-container {
-        overflow: auto; /* Aggiunge scroll sia orizzontale che verticale */
         flex-grow: 1;
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: 75vh;
         border: 1px solid #ddd;
         border-radius: 6px;
     }
+
+    /* Tabella delle giacenze */
     .table-giacenze {
-        table-layout: fixed; /* Mantiene le larghezze delle colonne fisse */
-        min-width: 2900px; /* Larghezza minima totale per forzare lo scroll orizzontale */
-        font-size: 0.875rem; /* Testo leggermente più piccolo */
+        table-layout: fixed;
+        min-width: 2900px;
+        font-size: 0.875rem;
+        border-collapse: collapse;
     }
-    /* Intestazioni della tabella sempre visibili durante lo scroll verticale */
+
+    /* Intestazioni fisse durante lo scroll */
     .table-giacenze thead th {
         position: sticky;
         top: 0;
         z-index: 2;
-        background-color: #e9ecef; /* Sfondo per le intestazioni */
+        background-color: #e9ecef;
+        text-align: center;
     }
-    /* Colori delle righe alternati per migliore leggibilità */
+
+    /* Colori alternati per righe */
     .table-giacenze tbody tr:nth-child(even) {
         background-color: #f8f9fa;
     }
-    /* Stile per il testo nelle celle per andare a capo correttamente */
+
+    /* Celle che vanno a capo */
     .table-giacenze th,
     .table-giacenze td {
         vertical-align: middle;
         white-space: normal !important;
         word-wrap: break-word !important;
+        padding: 4px 6px;
     }
+
     /* Larghezze fisse per ogni colonna */
     .col-check { width: 40px; }
-    .col-azioni { width: 70px; }
+    .col-azioni { width: 70px; text-align: center; }
     .col-id { width: 70px; }
     .col-codice { width: 250px; }
     .col-desc { width: 350px; }
@@ -56,8 +73,9 @@
     .col-data { width: 110px; }
     .col-stato { width: 100px; }
     .col-ddt { width: 120px; }
-    .col-misure { width: 90px; }
-    .col-buono, .col-commessa, .col-ordine, .col-protocollo, .col-nsrif, .col-narrivo { width: 150px; }
+    .col-misure { width: 90px; text-align: right; }
+    .col-buono, .col-commessa, .col-ordine, .col-protocollo,
+    .col-nsrif, .col-narrivo { width: 150px; }
     .col-serial, .col-posizione, .col-mezzo { width: 180px; }
 </style>
 {% endblock %}
@@ -71,6 +89,7 @@
         </a>
     </div>
 
+    <!-- Filtro di ricerca -->
     <div class="accordion mb-3" id="filtriAccordion">
         <div class="accordion-item">
             <h2 class="accordion-header" id="headingOne">
@@ -111,6 +130,7 @@
         </div>
     </div>
 
+    <!-- Tabella Giacenze -->
     <div class="card d-flex flex-column flex-grow-1">
         <div class="card-body d-flex flex-column">
             <div class="mb-3">
@@ -197,6 +217,7 @@
                 </table>
             </div>
         </div>
+
         <div class="card-footer mt-auto">
             <strong>Totali merce in giacenza:</strong>
             Colli: {{ totali.colli }} |
@@ -210,54 +231,45 @@
 
 {% block extra_js %}
 <script>
-    // Funzione per il checkbox "seleziona tutto"
+    // Checkbox "seleziona tutto"
     document.getElementById('select-all').addEventListener('change', function(e) {
         document.querySelectorAll('input[name="ids"]').forEach(cb => cb.checked = e.target.checked);
     });
 
-    // Funzione helper per ottenere gli ID di tutti gli articoli selezionati
+    // Restituisce gli ID selezionati
     function getSelectedIds() {
         return Array.from(document.querySelectorAll('input[name="ids"]:checked')).map(cb => cb.value);
     }
 
-    // Funzione generica per gestire le azioni di gruppo (Crea Buono, Crea DDT, etc.)
+    // Azioni di gruppo
     function handleBulkAction(baseUrl) {
         const ids = getSelectedIds();
         if (ids.length === 0) {
-            alert("Per favore, seleziona almeno un articolo.");
+            alert("Seleziona almeno un articolo.");
             return;
         }
-        // Azione "Duplica" permette di selezionare un solo articolo
-        if (baseUrl.includes('duplica_articolo')) {
-            if (ids.length > 1) {
-                alert("Per la duplicazione è possibile selezionare un solo articolo.");
-                return;
-            }
+        if (baseUrl.includes('duplica_articolo') && ids.length > 1) {
+            alert("Puoi duplicare solo un articolo per volta.");
+            return;
         }
-        // Reindirizza alla pagina corretta allegando gli ID selezionati
         window.location.href = `${baseUrl}?ids=${ids.join(',')}`;
     }
 
-    // Funzione per l'eliminazione di gruppo
+    // Eliminazione multipla
     function deleteSelected() {
         const ids = getSelectedIds();
         if (ids.length === 0) {
-            alert("Per favore, seleziona almeno un articolo da eliminare.");
+            alert("Seleziona almeno un articolo da eliminare.");
             return;
         }
-        
-        // Chiede conferma prima di procedere
-        if (confirm(`Sei sicuro di voler eliminare ${ids.length} articoli? L'azione è irreversibile.`)) {
-            // Crea un form invisibile per inviare i dati con metodo POST
+        if (confirm(`Vuoi eliminare ${ids.length} articoli? L'azione è irreversibile.`)) {
             const form = document.createElement('form');
             form.method = 'post';
             form.action = '{{ url_for("bulk_delete") }}';
-            
             const hiddenInput = document.createElement('input');
             hiddenInput.type = 'hidden';
             hiddenInput.name = 'selected_ids';
             hiddenInput.value = ids.join(',');
-            
             form.appendChild(hiddenInput);
             document.body.appendChild(form);
             form.submit();
