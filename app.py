@@ -742,26 +742,28 @@ def etichetta_preview():
         abort(403)
 
     buffer = io.BytesIO()
+    # Etichetta orizzontale 100x62 mm, margini ridotti
     doc = SimpleDocTemplate(
         buffer,
         pagesize=landscape((100 * mm, 62 * mm)),
-        leftMargin=5 * mm,
-        rightMargin=5 * mm,
-        topMargin=5 * mm,
-        bottomMargin=5 * mm
+        leftMargin=4 * mm,
+        rightMargin=4 * mm,
+        topMargin=4 * mm,
+        bottomMargin=4 * mm
     )
 
     styles = getSampleStyleSheet()
     styleN = ParagraphStyle(
-        name='NormalSmall',
+        name='SmallText',
         parent=styles['Normal'],
         fontSize=8,
-        leading=10,
-        spaceAfter=1,
+        leading=9,
         alignment=TA_LEFT
     )
 
     form_data = request.form.to_dict()
+
+    # Ordine logico dei campi
     campi_ordinati = [
         'cliente', 'fornitore', 'ordine', 'commessa',
         'n_ddt_ingresso', 'data_ingresso', 'n_arrivo',
@@ -770,52 +772,58 @@ def etichetta_preview():
 
     elements = []
 
-    # Logo in alto
+    # Logo in alto a sinistra
     logo_path = STATIC_FOLDER / 'logo camar.jpg'
     if logo_path.exists():
-        logo = RLImage(logo_path, width=25 * mm, height=15 * mm)
+        logo = RLImage(logo_path, width=20 * mm, height=10 * mm)
         elements.append(logo)
         elements.append(Spacer(1, 3 * mm))
 
-    # Tabella con i dati
+    # Tabella con i campi
     label_data = []
     for key in campi_ordinati:
         value = form_data.get(key)
         if value and str(value).strip():
-            value_str = str(value).strip()
-            value_display = (value_str[:40] + '...') if len(value_str) > 40 else value_str
-            label_text = key.replace('_', ' ').replace('n ', 'N. ').title()
-            label_p = Paragraph(f"<b>{label_text}:</b>", styleN)
-            value_p = Paragraph(value_display, styleN)
-            label_data.append([label_p, value_p])
+            label = key.replace('_', ' ').replace('n ', 'N. ').title()
+            value_text = str(value).strip()
+            if len(value_text) > 35:
+                value_text = value_text[:35] + "..."
+            label_data.append([
+                Paragraph(f"<b>{label}:</b>", styleN),
+                Paragraph(value_text, styleN)
+            ])
 
     if not label_data:
         return "Nessun dato da stampare.", 400
 
-    table = Table(label_data, colWidths=[3 * cm, 6 * cm])
+    # Tabella compatta
+    table = Table(label_data, colWidths=[2.8 * cm, 6.8 * cm])
     table.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 2),
+        ('LEFTPADDING', (0, 0), (-1, -1), 1),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 1),
         ('TOPPADDING', (0, 0), (-1, -1), 1),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+        ('ROWSPACING', (0, 0), (-1, -1), 1),
     ]))
 
     elements.append(table)
 
     try:
-        doc.build(elements)
+        # Generazione singola pagina
+        doc.build(elements, onFirstPage=lambda canvas, doc: None)
     except Exception as e:
         logging.error(f"Errore generazione etichetta: {e}")
-        return "Errore: il testo è troppo lungo per entrare nell'etichetta.", 400
+        return "Errore: testo troppo lungo per entrare nell'etichetta.", 400
 
     buffer.seek(0)
     return send_file(
         buffer,
         as_attachment=False,
-        download_name='Anteprima_Etichetta.pdf',
+        download_name='Etichetta.pdf',
         mimetype='application/pdf'
     )
+
 
 @app.route('/articolo/duplica')
 def duplica_articolo():
@@ -922,38 +930,62 @@ def gestione_destinatari():
 # --- FUNZIONE REPORT CORRETTA ---
 # La versione precedente chiamava una funzione non esistente (genera_report_costi).
 # Ho ripristinato la versione corretta che permette di calcolare la giacenza per cliente/mese.
+from sqlalchemy import or_, and_
+
 @app.route('/report', methods=['GET', 'POST'])
 def report():
-    if session.get('role') != 'admin': abort(403)
+    if session.get('role') != 'admin':
+        abort(403)
+
     risultato = None
+
     if request.method == 'POST':
         cliente = request.form.get('cliente')
         mese_anno = request.form.get('mese_anno')
+
         if cliente and mese_anno:
             try:
+                # Estrae anno e mese (es: "2025-09")
                 anno, mese = map(int, mese_anno.split('-'))
-                ultimo_giorno_numero = calendar.monthrange(anno, mese)[1]
-                fine_mese = date(anno, mese, ultimo_giorno_numero)
+                ultimo_giorno = calendar.monthrange(anno, mese)[1]
+                fine_mese = date(anno, mese, ultimo_giorno)
 
+                # Evita date future (utile su Render/UTC)
+                oggi = date.today()
+                if fine_mese > oggi:
+                    fine_mese = oggi
+
+                # Articoli ancora in giacenza a fine mese
                 articoli_in_giacenza = Articolo.query.filter(
                     Articolo.cliente == cliente,
                     Articolo.data_ingresso <= fine_mese,
-                    (Articolo.data_uscita == None) | (Articolo.data_uscita > fine_mese)
+                    or_(
+                        Articolo.data_uscita == None,
+                        Articolo.data_uscita > fine_mese
+                    )
                 ).all()
 
-                m2_totali = sum(art.m2 or 0 for art in articoli_in_giacenza)
+                # Calcolo m² totali
+                m2_totali = sum(float(art.m2 or 0) for art in articoli_in_giacenza)
 
                 if not articoli_in_giacenza:
-                    flash(f"Nessun articolo in giacenza trovato per {cliente} alla fine del periodo {mese:02d}-{anno}.", "info")
+                    flash(f"Nessun articolo trovato per {cliente} in giacenza al {fine_mese.strftime('%d/%m/%Y')}.", "info")
 
                 risultato = {
-                    "cliente": cliente, "periodo": f"{mese:02d}-{anno}",
-                    "m2_totali": round(m2_totali, 3), "conteggio_articoli": len(articoli_in_giacenza)
+                    "cliente": cliente,
+                    "periodo": fine_mese.strftime("%m-%Y"),
+                    "m2_totali": round(m2_totali, 3),
+                    "conteggio_articoli": len(articoli_in_giacenza)
                 }
+
             except ValueError:
-                flash("Formato data non valido.", "danger")
+                flash("Formato data non valido. Usa YYYY-MM.", "danger")
+
+    # Elenco clienti per il menu a tendina
     clienti = db.session.query(Articolo.cliente).distinct().order_by(Articolo.cliente).all()
-    return render_template('report.html', clienti=[c[0] for c in clienti if c[0]], risultato=risultato)
+    clienti = [c[0] for c in clienti if c[0]]
+
+    return render_template('report.html', clienti=clienti, risultato=risultato)
 
 @app.route('/calcolo-costi')
 def calcolo_costi():
