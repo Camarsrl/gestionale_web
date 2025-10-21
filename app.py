@@ -697,28 +697,54 @@ def ddt_setup():
         tot_colli=tot_colli,
         tot_peso=tot_peso)
 
-@app.route('/ddt/preview', methods=['POST'])
+@app.route('/ddt/preview', methods=['GET', 'POST'])
 def ddt_preview():
-    if session.get('role') != 'admin': abort(403)
-    ids_str = request.form.get('ids', '')
-    if not ids_str: return "Errore: Articoli non specificati.", 400
-    ids = [int(i) for i in ids_str.split(',')]
+    if session.get('role') != 'admin':
+        abort(403)
+
+    # ✅ Supporta sia POST (dal form) che GET (dal link con ?ids=...)
+    ids_str = request.form.get('ids') or request.args.get('ids', '')
+    if not ids_str:
+        return "Errore: Articoli non specificati.", 400
+
+    try:
+        ids = [int(i) for i in ids_str.split(',') if i.isdigit()]
+    except ValueError:
+        return "Errore: ID non validi.", 400
+
     articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
+    if not articoli:
+        return "Errore: Nessun articolo trovato.", 400
+
+    # ✅ Carica i destinatari salvati
     dest_path = CONFIG_FOLDER / 'destinatari_saved.json'
     destinatari = {}
     if dest_path.exists():
         try:
             with open(dest_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                if isinstance(data, dict): destinatari = data
-        except (json.JSONDecodeError, IOError): pass
+                if isinstance(data, dict):
+                    destinatari = data
+        except (json.JSONDecodeError, IOError):
+            pass
+
+    # ✅ Crea PDF in memoria
     buffer = io.BytesIO()
     ddt_data = request.form.to_dict()
     ddt_data['n_ddt'] = request.form.get('n_ddt', '(ANTEPRIMA)')
     destinatario_scelto = destinatari.get(request.form.get('destinatario_key'), {})
+
+    # Generazione del PDF del DDT
     generate_ddt_pdf(buffer, ddt_data, articoli, destinatario_scelto)
+
     buffer.seek(0)
-    return send_file(buffer, as_attachment=False, download_name='ANTEPRIMA_DDT.pdf', mimetype='application/pdf')
+    return send_file(
+        buffer,
+        as_attachment=False,
+        download_name='ANTEPRIMA_DDT.pdf',
+        mimetype='application/pdf'
+    )
+
 
 @app.route('/etichetta', methods=['GET'])
 def etichetta_manuale():
