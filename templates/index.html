@@ -1,8 +1,6 @@
-{% extends "layout.html" %}
-
 {% block custom_css %}
 <style>
-    /* Layout a tutta altezza */
+    /* Layout generale */
     .content-wrapper {
         display: flex;
         flex-direction: column;
@@ -14,33 +12,36 @@
         display: flex;
         flex-direction: column;
         flex-grow: 1;
+        overflow: hidden; /* necessario per contenere la tabella scrollabile */
     }
 
     /* Corpo della card con scroll interno */
     .card-body.d-flex {
         flex-grow: 1;
-        min-height: 0;
+        min-height: 0; /* evita che la tabella espanda la card */
+        display: flex;
+        flex-direction: column;
     }
 
-    /* Contenitore della tabella con scroll orizzontale e verticale */
+    /* Contenitore della tabella con scroll verticale e orizzontale */
     .table-container {
         flex-grow: 1;
         overflow-x: auto;
         overflow-y: auto;
-        max-height: 75vh;
+        height: 100%; /* forza la tabella a stare dentro lo spazio disponibile */
         border: 1px solid #ddd;
         border-radius: 6px;
     }
 
-    /* Tabella delle giacenze */
+    /* Tabella */
     .table-giacenze {
         table-layout: fixed;
-        min-width: 2900px;
+        min-width: 2900px; /* forza lo scroll orizzontale */
         font-size: 0.875rem;
         border-collapse: collapse;
     }
 
-    /* Intestazioni fisse durante lo scroll */
+    /* Intestazioni fisse durante lo scroll verticale */
     .table-giacenze thead th {
         position: sticky;
         top: 0;
@@ -54,7 +55,7 @@
         background-color: #f8f9fa;
     }
 
-    /* Celle che vanno a capo */
+    /* Celle con testo a capo */
     .table-giacenze th,
     .table-giacenze td {
         vertical-align: middle;
@@ -63,7 +64,7 @@
         padding: 4px 6px;
     }
 
-    /* Larghezze fisse per ogni colonna */
+    /* Larghezze fisse colonne */
     .col-check { width: 40px; }
     .col-azioni { width: 70px; text-align: center; }
     .col-id { width: 70px; }
@@ -80,200 +81,3 @@
 </style>
 {% endblock %}
 
-{% block content %}
-<div class="content-wrapper">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h3>Giacenze Magazzino</h3>
-        <a href="{{ url_for('add_articolo') }}" class="btn btn-primary">
-            <i class="bi bi-plus-circle-fill me-2"></i>Aggiungi Articolo
-        </a>
-    </div>
-
-    <!-- Filtro di ricerca -->
-    <div class="accordion mb-3" id="filtriAccordion">
-        <div class="accordion-item">
-            <h2 class="accordion-header" id="headingOne">
-                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFiltri" aria-expanded="false" aria-controls="collapseFiltri">
-                    Filtri di Ricerca
-                </button>
-            </h2>
-            <div id="collapseFiltri" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#filtriAccordion">
-                <div class="accordion-body">
-                    <form method="get" action="{{ url_for('visualizza_giacenze') }}">
-                        <div class="row g-3">
-                            <div class="col-md-2"><label class="form-label">ID</label><input type="text" name="id" class="form-control form-control-sm" value="{{ filters.get('id', '') }}"></div>
-                            <div class="col-md-2"><label class="form-label">Commessa</label><input type="text" name="commessa" class="form-control form-control-sm" value="{{ filters.get('commessa', '') }}"></div>
-                            <div class="col-md-2"><label class="form-label">Cliente</label><input type="text" name="cliente" class="form-control form-control-sm" value="{{ filters.get('cliente', '') }}"></div>
-                            <div class="col-md-2"><label class="form-label">Fornitore</label><input type="text" name="fornitore" class="form-control form-control-sm" value="{{ filters.get('fornitore', '') }}"></div>
-                            <div class="col-md-2"><label class="form-label">N. Arrivo</label><input type="text" name="n_arrivo" class="form-control form-control-sm" value="{{ filters.get('n_arrivo', '') }}"></div>
-                            <div class="col-md-2"><label class="form-label">Stato</label><input type="text" name="stato" class="form-control form-control-sm" value="{{ filters.get('stato', '') }}"></div>
-                            <div class="col-md-4"><label class="form-label">Codice Articolo</label><input type="text" name="codice_articolo" class="form-control form-control-sm" value="{{ filters.get('codice_articolo', '') }}"></div>
-                            <div class="col-md-4"><label class="form-label">Descrizione</label><input type="text" name="descrizione" class="form-control form-control-sm" value="{{ filters.get('descrizione', '') }}"></div>
-                            <div class="col-md-4"><label class="form-label">Serial Number</label><input type="text" name="serial_number" class="form-control form-control-sm" value="{{ filters.get('serial_number', '') }}"></div>
-                            <div class="col-md-3"><label class="form-label">Posizione</label><input type="text" name="posizione" class="form-control form-control-sm" value="{{ filters.get('posizione', '') }}"></div>
-                            <div class="col-md-3"><label class="form-label">Mezzo in Uscita</label><input type="text" name="mezzi_in_uscita" class="form-control form-control-sm" value="{{ filters.get('mezzi_in_uscita', '') }}"></div>
-                            <div class="col-md-3"><label class="form-label">Ns. Rif.</label><input type="text" name="ns_rif" class="form-control form-control-sm" value="{{ filters.get('ns_rif', '') }}"></div>
-                            <div class="col-md-3"><label class="form-label">Protocollo</label><input type="text" name="protocollo" class="form-control form-control-sm" value="{{ filters.get('protocollo', '') }}"></div>
-                            <div class="col-md-3"><label class="form-label">Data Ingresso (Da)</label><input type="date" name="data_ingresso_da" class="form-control form-control-sm" value="{{ filters.get('data_ingresso_da', '') }}"></div>
-                            <div class="col-md-3"><label class="form-label">Data Ingresso (A)</label><input type="date" name="data_ingresso_a" class="form-control form-control-sm" value="{{ filters.get('data_ingresso_a', '') }}"></div>
-                            <div class="col-md-3"><label class="form-label">Data Uscita (Da)</label><input type="date" name="data_uscita_da" class="form-control form-control-sm" value="{{ filters.get('data_uscita_da', '') }}"></div>
-                            <div class="col-md-3"><label class="form-label">Data Uscita (A)</label><input type="date" name="data_uscita_a" class="form-control form-control-sm" value="{{ filters.get('data_uscita_a', '') }}"></div>
-                        </div>
-                        <hr>
-                        <div class="d-flex justify-content-end">
-                            <a href="{{ url_for('visualizza_giacenze') }}" class="btn btn-sm btn-outline-secondary me-2">Reset Filtri</a>
-                            <button type="submit" class="btn btn-sm btn-primary">Applica Filtri</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Tabella Giacenze -->
-    <div class="card d-flex flex-column flex-grow-1">
-        <div class="card-body d-flex flex-column">
-            <div class="mb-3">
-                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="handleBulkAction('{{ url_for('buono_setup') }}')">Crea Buono</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="handleBulkAction('{{ url_for('ddt_setup') }}')">Crea DDT</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="handleBulkAction('{{ url_for('etichetta_manuale') }}')">Stampa Etichetta</button>
-                <button type="button" class="btn btn-sm btn-info text-white" onclick="handleBulkAction('{{ url_for('edit_multiple') }}')">Modifica Selez.</button>
-                <button type="button" class="btn btn-sm btn-warning" onclick="handleBulkAction('{{ url_for('duplica_articolo') }}')">Duplica Selez.</button>
-                <button type="button" class="btn btn-sm btn-danger" onclick="deleteSelected()">Elimina Selez.</button>
-            </div>
-
-            <div class="table-container">
-                <table class="table table-bordered table-hover table-sm table-giacenze">
-                    <thead>
-                        <tr class="table-light">
-                            <th class="col-check"><input type="checkbox" id="select-all" class="form-check-input"></th>
-                            <th class="col-azioni">Azioni</th>
-                            <th class="col-id">ID</th>
-                            <th class="col-codice">Codice Articolo</th>
-                            <th class="col-desc">Descrizione</th>
-                            <th class="col-cliente">Cliente</th>
-                            <th class="col-fornitore">Fornitore</th>
-                            <th class="col-data">Data Ingresso</th>
-                            <th class="col-stato">Stato</th>
-                            <th class="col-ddt">DDT Ingresso</th>
-                            <th class="col-ddt">DDT Uscita</th>
-                            <th class="col-data">Data Uscita</th>
-                            <th class="col-buono">Buono N.</th>
-                            <th class="col-misure">Larghezza</th>
-                            <th class="col-misure">Lunghezza</th>
-                            <th class="col-misure">Altezza</th>
-                            <th class="col-misure">m²</th>
-                            <th class="col-misure">m³</th>
-                            <th class="col-commessa">Commessa</th>
-                            <th class="col-ordine">Ordine</th>
-                            <th class="col-misure">N. Colli</th>
-                            <th class="col-misure">Peso</th>
-                            <th class="col-posizione">Posizione</th>
-                            <th class="col-protocollo">Protocollo</th>
-                            <th class="col-serial">Serial Number</th>
-                            <th class="col-narrivo">N. Arrivo</th>
-                            <th class="col-nsrif">Ns. Rif.</th>
-                            <th class="col-mezzo">Mezzo in Uscita</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for articolo in articoli %}
-                        <tr>
-                            <td><input type="checkbox" name="ids" value="{{ articolo.id }}" class="form-check-input"></td>
-                            <td><a href="{{ url_for('edit_articolo', id=articolo.id) }}" class="btn btn-sm btn-primary">Mod.</a></td>
-                            <td>{{ articolo.id }}</td>
-                            <td>{{ articolo.codice_articolo }}</td>
-                            <td>{{ articolo.descrizione }}</td>
-                            <td>{{ articolo.cliente }}</td>
-                            <td>{{ articolo.fornitore }}</td>
-                            <td>{{ articolo.data_ingresso.strftime('%d/%m/%Y') if articolo.data_ingresso }}</td>
-                            <td>{{ articolo.stato }}</td>
-                            <td>{{ articolo.n_ddt_ingresso }}</td>
-                            <td>{{ articolo.n_ddt_uscita }}</td>
-                            <td>{{ articolo.data_uscita.strftime('%d/%m/%Y') if articolo.data_uscita }}</td>
-                            <td>{{ articolo.buono_n }}</td>
-                            <td>{{ articolo.larghezza }}</td>
-                            <td>{{ articolo.lunghezza }}</td>
-                            <td>{{ articolo.altezza }}</td>
-                            <td>{{ articolo.m2 }}</td>
-                            <td>{{ articolo.m3 }}</td>
-                            <td>{{ articolo.commessa }}</td>
-                            <td>{{ articolo.ordine }}</td>
-                            <td>{{ articolo.n_colli }}</td>
-                            <td>{{ articolo.peso }}</td>
-                            <td>{{ articolo.posizione }}</td>
-                            <td>{{ articolo.protocollo }}</td>
-                            <td>{{ articolo.serial_number }}</td>
-                            <td>{{ articolo.n_arrivo }}</td>
-                            <td>{{ articolo.ns_rif }}</td>
-                            <td>{{ articolo.mezzi_in_uscita }}</td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="28" class="text-center">Nessun articolo trovato.</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <div class="card-footer mt-auto">
-            <strong>Totali merce in giacenza:</strong>
-            Colli: {{ totali.colli }} |
-            Peso: {{ '%.2f'|format(totali.peso) }} Kg |
-            m²: {{ '%.3f'|format(totali.m2) }} |
-            m³: {{ '%.3f'|format(totali.m3) }}
-        </div>
-    </div>
-</div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-    // Checkbox "seleziona tutto"
-    document.getElementById('select-all').addEventListener('change', function(e) {
-        document.querySelectorAll('input[name="ids"]').forEach(cb => cb.checked = e.target.checked);
-    });
-
-    // Restituisce gli ID selezionati
-    function getSelectedIds() {
-        return Array.from(document.querySelectorAll('input[name="ids"]:checked')).map(cb => cb.value);
-    }
-
-    // Azioni di gruppo
-    function handleBulkAction(baseUrl) {
-        const ids = getSelectedIds();
-        if (ids.length === 0) {
-            alert("Seleziona almeno un articolo.");
-            return;
-        }
-        if (baseUrl.includes('duplica_articolo') && ids.length > 1) {
-            alert("Puoi duplicare solo un articolo per volta.");
-            return;
-        }
-        window.location.href = `${baseUrl}?ids=${ids.join(',')}`;
-    }
-
-    // Eliminazione multipla
-    function deleteSelected() {
-        const ids = getSelectedIds();
-        if (ids.length === 0) {
-            alert("Seleziona almeno un articolo da eliminare.");
-            return;
-        }
-        if (confirm(`Vuoi eliminare ${ids.length} articoli? L'azione è irreversibile.`)) {
-            const form = document.createElement('form');
-            form.method = 'post';
-            form.action = '{{ url_for("bulk_delete") }}';
-            const hiddenInput = document.createElement('input');
-            hiddenInput.type = 'hidden';
-            hiddenInput.name = 'selected_ids';
-            hiddenInput.value = ids.join(',');
-            form.appendChild(hiddenInput);
-            document.body.appendChild(form);
-            form.submit();
-        }
-    }
-</script>
-{% endblock %}
