@@ -1,32 +1,94 @@
 {% extends "layout.html" %}
+
+{% block custom_css %}
+<style>
+    .import-card {
+        max-width: 600px;
+        margin: 40px auto;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+        border-radius: 10px;
+        background: #fff;
+    }
+
+    .import-card h3 {
+        color: #0d6efd;
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+
+    .form-label {
+        font-weight: 500;
+    }
+
+    .btn-primary {
+        background-color: #0d6efd;
+        border: none;
+        transition: 0.2s;
+    }
+
+    .btn-primary:hover {
+        background-color: #0b5ed7;
+    }
+
+    .btn-secondary {
+        background-color: #6c757d;
+        border: none;
+        transition: 0.2s;
+    }
+
+    .btn-secondary:hover {
+        background-color: #5a6268;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="card p-4 mx-auto" style="max-width: 600px;">
-    <h3>Importa da File Excel</h3>
+<div class="card p-4 import-card">
+    <div class="d-flex align-items-center mb-3">
+        <i class="bi bi-upload fs-3 text-primary me-2"></i>
+        <h3 class="mb-0">Importa da File Excel</h3>
+    </div>
     <hr>
+
     {% if profiles %}
     <form method="post" enctype="multipart/form-data">
         <div class="mb-3">
-            <label for="profile" class="form-label">Seleziona Profilo di Importazione</label>
+            <label for="profile" class="form-label">📋 Seleziona Profilo di Importazione</label>
             <select name="profile" id="profile" class="form-select" required>
                 {% for profile in profiles %}
                 <option value="{{ profile }}">{{ profile }}</option>
                 {% endfor %}
             </select>
         </div>
+
         <div class="mb-3">
-            <label for="file" class="form-label">Seleziona File Excel (.xlsx)</label>
+            <label for="file" class="form-label">📂 Seleziona File Excel (.xlsx, .xls, .xlsm)</label>
             <input type="file" name="file" id="file" class="form-control" required accept=".xlsx,.xls,.xlsm">
+            <div class="form-text text-muted mt-1">
+                Assicurati che le colonne corrispondano al profilo scelto.
+            </div>
         </div>
-        <div class="mt-4">
-            <button type="submit" class="btn btn-primary">Carica e Importa</button>
-            <a href="{{ url_for('main_menu') }}" class="btn btn-secondary">Annulla</a>
+
+        <div class="mt-4 d-flex justify-content-between">
+            <a href="{{ url_for('main_menu') }}" class="btn btn-secondary px-4">
+                <i class="bi bi-arrow-left-circle me-1"></i> Annulla
+            </a>
+            <button type="submit" class="btn btn-primary px-4">
+                <i class="bi bi-check-circle me-1"></i> Carica e Importa
+            </button>
         </div>
     </form>
+
     {% else %}
-    <div class="alert alert-warning">
-        Nessun profilo di importazione trovato. Assicurati che il file <code>config/mappe_excel.json</code> esista e sia configurato correttamente.
+    <div class="alert alert-warning mt-3">
+        ⚠️ Nessun profilo di importazione trovato.<br>
+        Assicurati che il file <code>config/mappe_excel.json</code> esista e sia configurato correttamente.
     </div>
-    <a href="{{ url_for('main_menu') }}" class="btn btn-secondary">Torna al Menu</a>
+    <div class="d-flex justify-content-end mt-3">
+        <a href="{{ url_for('main_menu') }}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left-circle me-1"></i> Torna al Menu
+        </a>
+    </div>
     {% endif %}
 </div>
 {% endblock %}
