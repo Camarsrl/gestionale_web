@@ -2,41 +2,48 @@
 
 {% block custom_css %}
 <style>
-    /* Layout a tutta altezza che si adatta allo schermo */
+    /* Layout a tutta altezza */
     .content-wrapper {
         display: flex;
         flex-direction: column;
         height: calc(100vh - 120px);
     }
 
-    /* La card principale si espande per riempire lo spazio verticale */
+    /* Card principale che contiene la tabella */
     .card.main-card {
-        flex-grow: 1;
         display: flex;
         flex-direction: column;
-        min-height: 0; /* Fix essenziale per lo scroll in contenitori flex */
+        flex-grow: 1;
+        overflow: hidden; /* Importante per abilitare scroll interno */
     }
 
-    /* Il corpo della card si espande per contenere la tabella */
+    /* Corpo della card con tabella scrollabile */
     .card-body.main-card-body {
-        flex-grow: 1;
+        flex: 1 1 auto;
         display: flex;
         flex-direction: column;
         min-height: 0;
+        overflow: hidden;
     }
 
-    /* Contenitore della tabella che abiliterà lo scroll */
+    /* Contenitore della tabella con scroll verticale e orizzontale */
     .table-container {
-        flex-grow: 1; /* Occupa tutto lo spazio verticale disponibile */
-        overflow: auto; /* Attiva le barre di scorrimento solo quando necessario */
+        flex: 1 1 auto;
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: calc(100vh - 320px); /* Spazio per header e footer */
         border: 1px solid #ddd;
         border-radius: 6px;
+        background-color: #fff;
     }
 
+    /* Tabella delle giacenze */
     .table-giacenze {
+        width: 100%;
         table-layout: fixed;
-        min-width: 2900px; /* Larghezza minima per lo scroll orizzontale */
+        min-width: 2800px; /* Forza lo scroll orizzontale */
         font-size: 0.875rem;
+        border-collapse: collapse;
     }
 
     /* Intestazioni fisse durante lo scroll verticale */
@@ -48,20 +55,21 @@
         text-align: center;
     }
 
+    /* Righe alternate */
     .table-giacenze tbody tr:nth-child(even) {
         background-color: #f8f9fa;
     }
 
-    /* Stile per il testo nelle celle */
+    /* Celle con testo a capo */
     .table-giacenze th,
     .table-giacenze td {
         vertical-align: middle;
-        white-space: normal !important; /* Forza il testo ad andare a capo */
+        white-space: normal !important;
         word-wrap: break-word !important;
         padding: 4px 6px;
     }
 
-    /* Larghezze fisse per ogni colonna */
+    /* Larghezze fisse per le colonne */
     .col-check { width: 40px; }
     .col-azioni { width: 70px; text-align: center; }
     .col-id { width: 70px; }
@@ -87,14 +95,17 @@
         </a>
     </div>
 
+    <!-- Filtro -->
     <div class="accordion mb-3" id="filtriAccordion">
         <div class="accordion-item">
             <h2 class="accordion-header" id="headingOne">
-                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFiltri" aria-expanded="false" aria-controls="collapseFiltri">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#collapseFiltri" aria-expanded="false" aria-controls="collapseFiltri">
                     Filtri di Ricerca
                 </button>
             </h2>
-            <div id="collapseFiltri" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#filtriAccordion">
+            <div id="collapseFiltri" class="accordion-collapse collapse" aria-labelledby="headingOne"
+                 data-bs-parent="#filtriAccordion">
                 <div class="accordion-body">
                     <form method="get" action="{{ url_for('visualizza_giacenze') }}">
                         <div class="row g-3">
@@ -111,10 +122,6 @@
                             <div class="col-md-3"><label class="form-label">Mezzo in Uscita</label><input type="text" name="mezzi_in_uscita" class="form-control form-control-sm" value="{{ filters.get('mezzi_in_uscita', '') }}"></div>
                             <div class="col-md-3"><label class="form-label">Ns. Rif.</label><input type="text" name="ns_rif" class="form-control form-control-sm" value="{{ filters.get('ns_rif', '') }}"></div>
                             <div class="col-md-3"><label class="form-label">Protocollo</label><input type="text" name="protocollo" class="form-control form-control-sm" value="{{ filters.get('protocollo', '') }}"></div>
-                            <div class="col-md-3"><label class="form-label">Data Ingresso (Da)</label><input type="date" name="data_ingresso_da" class="form-control form-control-sm" value="{{ filters.get('data_ingresso_da', '') }}"></div>
-                            <div class="col-md-3"><label class="form-label">Data Ingresso (A)</label><input type="date" name="data_ingresso_a" class="form-control form-control-sm" value="{{ filters.get('data_ingresso_a', '') }}"></div>
-                            <div class="col-md-3"><label class="form-label">Data Uscita (Da)</label><input type="date" name="data_uscita_da" class="form-control form-control-sm" value="{{ filters.get('data_uscita_da', '') }}"></div>
-                            <div class="col-md-3"><label class="form-label">Data Uscita (A)</label><input type="date" name="data_uscita_a" class="form-control form-control-sm" value="{{ filters.get('data_uscita_a', '') }}"></div>
                         </div>
                         <hr>
                         <div class="d-flex justify-content-end">
@@ -127,15 +134,16 @@
         </div>
     </div>
 
+    <!-- Tabella -->
     <div class="card main-card">
         <div class="card-body main-card-body">
             <div class="mb-3">
-                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="handleBulkAction('{{ url_for('buono_setup') }}')">Crea Buono</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="handleBulkAction('{{ url_for('ddt_setup') }}')">Crea DDT</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="handleBulkAction('{{ url_for('etichetta_manuale') }}')">Stampa Etichetta</button>
-                <button type="button" class="btn btn-sm btn-info text-white" onclick="handleBulkAction('{{ url_for('edit_multiple') }}')">Modifica Selez.</button>
-                <button type="button" class="btn btn-sm btn-warning" onclick="handleBulkAction('{{ url_for('duplica_articolo') }}')">Duplica Selez.</button>
-                <button type="button" class="btn btn-sm btn-danger" onclick="deleteSelected()">Elimina Selez.</button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="handleBulkAction('{{ url_for('buono_setup') }}')">Crea Buono</button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="handleBulkAction('{{ url_for('ddt_setup') }}')">Crea DDT</button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="handleBulkAction('{{ url_for('etichetta_manuale') }}')">Stampa Etichetta</button>
+                <button class="btn btn-sm btn-info text-white" onclick="handleBulkAction('{{ url_for('edit_multiple') }}')">Modifica Selez.</button>
+                <button class="btn btn-sm btn-warning" onclick="handleBulkAction('{{ url_for('duplica_articolo') }}')">Duplica Selez.</button>
+                <button class="btn btn-sm btn-danger" onclick="deleteSelected()">Elimina Selez.</button>
             </div>
 
             <div class="table-container">
@@ -227,50 +235,36 @@
 
 {% block extra_js %}
 <script>
-    // Checkbox "seleziona tutto"
-    document.getElementById('select-all').addEventListener('change', function(e) {
-        document.querySelectorAll('input[name="ids"]').forEach(cb => cb.checked = e.target.checked);
-    });
+document.getElementById('select-all').addEventListener('change', function(e) {
+    document.querySelectorAll('input[name="ids"]').forEach(cb => cb.checked = e.target.checked);
+});
 
-    // Restituisce gli ID selezionati
-    function getSelectedIds() {
-        return Array.from(document.querySelectorAll('input[name="ids"]:checked')).map(cb => cb.value);
-    }
+function getSelectedIds() {
+    return Array.from(document.querySelectorAll('input[name="ids"]:checked')).map(cb => cb.value);
+}
 
-    // Azioni di gruppo
-    function handleBulkAction(baseUrl) {
-        const ids = getSelectedIds();
-        if (ids.length === 0) {
-            alert("Seleziona almeno un articolo.");
-            return;
-        }
-        if (baseUrl.includes('duplica_articolo') && ids.length > 1) {
-            alert("Puoi duplicare solo un articolo per volta.");
-            return;
-        }
-        window.location.href = `${baseUrl}?ids=${ids.join(',')}`;
-    }
+function handleBulkAction(baseUrl) {
+    const ids = getSelectedIds();
+    if (ids.length === 0) { alert("Seleziona almeno un articolo."); return; }
+    if (baseUrl.includes('duplica_articolo') && ids.length > 1) { alert("Puoi duplicare solo un articolo per volta."); return; }
+    window.location.href = `${baseUrl}?ids=${ids.join(',')}`;
+}
 
-    // Eliminazione multipla
-    function deleteSelected() {
-        const ids = getSelectedIds();
-        if (ids.length === 0) {
-            alert("Seleziona almeno un articolo da eliminare.");
-            return;
-        }
-        if (confirm(`Vuoi eliminare ${ids.length} articoli? L'azione è irreversibile.`)) {
-            const form = document.createElement('form');
-            form.method = 'post';
-            form.action = '{{ url_for("bulk_delete") }}';
-            const hiddenInput = document.createElement('input');
-            hiddenInput.type = 'hidden';
-            hiddenInput.name = 'selected_ids';
-            hiddenInput.value = ids.join(',');
-            form.appendChild(hiddenInput);
-            document.body.appendChild(form);
-            form.submit();
-        }
+function deleteSelected() {
+    const ids = getSelectedIds();
+    if (ids.length === 0) { alert("Seleziona almeno un articolo da eliminare."); return; }
+    if (confirm(`Vuoi eliminare ${ids.length} articoli? L'azione è irreversibile.`)) {
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.action = '{{ url_for("bulk_delete") }}';
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = 'selected_ids';
+        hiddenInput.value = ids.join(',');
+        form.appendChild(hiddenInput);
+        document.body.appendChild(form);
+        form.submit();
     }
+}
 </script>
 {% endblock %}
-
