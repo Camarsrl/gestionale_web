@@ -425,39 +425,70 @@ def delete_attachment(id):
 
 @app.route('/import', methods=['GET', 'POST'])
 def import_excel():
-    if session.get('role') != 'admin': abort(403)
+    if session.get('role') != 'admin':
+        abort(403)
+
     profiles_path = CONFIG_FOLDER / 'mappe_excel.json'
     if not profiles_path.exists():
         flash('File profili (mappe_excel.json) non trovato in config/.', 'danger')
         return render_template('import.html', profiles={})
+
+    # Carica profili Excel disponibili
     with open(profiles_path, 'r', encoding='utf-8') as f:
         profiles = json.load(f)
+
     if request.method == 'POST':
         file = request.files.get('file')
         profile_name = request.form.get('profile')
         profile = profiles.get(profile_name)
+
         if not file or file.filename == '' or not profile:
             flash('File o profilo mancante.', 'warning')
             return redirect(request.url)
+
         try:
-            df = pd.read_excel(file, header=profile.get('header_row', 0), dtype=str, engine='openpyxl').fillna('')
+            # Legge il file Excel
+            df = pd.read_excel(
+                file,
+                header=profile.get('header_row', 0),
+                dtype=str,
+                engine='openpyxl'
+            ).fillna('')
+
             col_map = profile.get('column_map', {})
             added_count = 0
+
+            # Lista campi realmente esistenti nel modello Articolo
+            colonne_valide = set(c.name for c in Articolo.__table__.columns)
+
             for index, row in df.iterrows():
-                if not any(row.get(excel_col) for excel_col in col_map.keys()): continue
+                if not any(row.get(excel_col) for excel_col in col_map.keys()):
+                    continue
+
+                # Crea nuovo oggetto Articolo
                 new_art = Articolo()
-                form_data = {db_col: row.get(excel_col) for excel_col, db_col in col_map.items()}
+
+                # Mappa i dati da Excel → colonne DB
+                form_data = {}
+                for excel_col, db_col in col_map.items():
+                    if db_col in colonne_valide:
+                        value = str(row.get(excel_col)).strip()
+                        form_data[db_col] = value if value.lower() not in ['none', 'nan', ''] else None
+
                 populate_articolo_from_form(new_art, form_data)
                 db.session.add(new_art)
                 added_count += 1
+
             db.session.commit()
-            flash(f'Importazione completata. {added_count} articoli aggiunti.', 'success')
+            flash(f'✅ Importazione completata con successo. {added_count} articoli aggiunti.', 'success')
             return redirect(url_for('visualizza_giacenze'))
+
         except Exception as e:
             db.session.rollback()
-            flash(f"Errore durante l'importazione: {e}", "danger")
+            flash(f"❌ Errore durante l'importazione: {e}", "danger")
             logging.error(f"Errore import: {e}", exc_info=True)
             return redirect(request.url)
+
     return render_template('import.html', profiles=profiles.keys())
 
 @app.route('/export')
