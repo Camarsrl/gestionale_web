@@ -2,133 +2,212 @@
 
 {% block custom_css %}
 <style>
-    .form-control-sm { height: calc(1.5em + .5rem + 2px); }
-    .input-group-text-sm { padding: .25rem .5rem; font-size: .875rem; }
-    .table th, .table td { vertical-align: middle; }
+    .ddt-card {
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        padding: 20px;
+        background-color: #fff;
+    }
+
+    .ddt-header {
+        background-color: #0d6efd;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px 8px 0 0;
+        margin: -20px -20px 20px -20px;
+    }
+
+    .ddt-header h4 {
+        margin: 0;
+        font-size: 1.2rem;
+    }
+
+    .table-ddt {
+        font-size: 0.9rem;
+    }
+
+    .table-ddt th {
+        background-color: #f0f2f5;
+        text-align: center;
+    }
+
+    .table-ddt td {
+        vertical-align: middle;
+    }
+
+    .totali-box {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        padding: 10px 15px;
+        font-weight: 600;
+    }
+
+    .form-section {
+        background-color: #f8f9fa;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+
+    .form-section h6 {
+        font-weight: 600;
+        color: #0d6efd;
+        border-bottom: 1px solid #ddd;
+        padding-bottom: 6px;
+        margin-bottom: 12px;
+    }
 </style>
 {% endblock %}
 
-
 {% block content %}
-<form method="POST" id="ddt-form" action="{{ url_for('ddt_finalize', ids=ids) }}">
-    <div class="card shadow-sm">
-        <div class="card-header bg-light d-flex justify-content-between align-items-center">
-            <h4 class="mb-0">Documento di Trasporto</h4>
-            <div class="btn-group">
-                <button type="submit" formaction="{{ url_for('ddt_preview', ids=ids) }}" formtarget="_blank" class="btn btn-primary">
-                    <i class="bi bi-printer me-2"></i>Genera PDF (Anteprima)
-                </button>
-                <button type="submit" class="btn btn-success">
-                    <i class="bi bi-check-circle-fill me-2"></i>Finalizza e Scarica DDT
-                </button>
-            </div>
+<div class="container mt-4 mb-5">
+    <div class="ddt-card">
+        <div class="ddt-header">
+            <h4><i class="bi bi-truck"></i> Creazione DDT</h4>
         </div>
-        <div class="card-body p-4">
-            <div class="row g-3 mb-3">
-                <div class="col-md-3">
-                    <label for="destinatario_key" class="form-label">Destinatario</label>
-                    <div class="input-group">
-                        <select name="destinatario_key" id="destinatario_key" class="form-select" required>
-                             <option value="" disabled selected>-- Seleziona --</option>
+
+        <form method="post" action="{{ url_for('ddt_finalize') }}">
+            <input type="hidden" name="ids" value="{{ ids }}">
+
+            <!-- DATI PRINCIPALI -->
+            <div class="form-section">
+                <h6>Dati Principali</h6>
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Numero DDT</label>
+                        <input type="text" name="n_ddt" class="form-control" id="n_ddt" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Data Uscita</label>
+                        <input type="date" name="data_uscita" class="form-control" value="{{ today }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Targa Mezzo</label>
+                        <input type="text" name="targa" class="form-control">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Causale Trasporto</label>
+                        <input type="text" name="causale_trasporto" class="form-control" value="C/Lavorazione">
+                    </div>
+                </div>
+            </div>
+
+            <!-- DESTINATARIO -->
+            <div class="form-section">
+                <h6>Destinatario</h6>
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-4">
+                        <label class="form-label">Seleziona Destinatario Salvato</label>
+                        <select name="destinatario_key" class="form-select">
+                            <option value="">-- Seleziona --</option>
                             {% for key, dest in destinatari.items() %}
-                                <option value="{{ key }}">{{ dest.ragione_sociale }}</option>
+                                <option value="{{ key }}">{{ key }} - {{ dest.ragione_sociale }}</option>
                             {% endfor %}
                         </select>
-                        <a href="{{ url_for('gestione_destinatari') }}" target="_blank" class="btn btn-outline-secondary" title="Aggiungi o modifica destinatari">
-                            <i class="bi bi-plus-lg"></i>
-                        </a>
                     </div>
-                </div>
-                <div class="col-md-3">
-                    <label for="n_ddt" class="form-label">N. DDT</label>
-                    <div class="input-group">
-                        <input type="text" id="n_ddt" name="n_ddt" class="form-control" required>
-                        <button class="btn btn-outline-secondary" type="button" id="get-next-ddt" title="Ottieni prossimo numero">
-                            <i class="bi bi-arrow-clockwise"></i>
-                        </button>
+                    <div class="col-md-4">
+                        <label class="form-label">Destinatario (manuale)</label>
+                        <input type="text" name="destinatario" class="form-control" placeholder="Inserisci nome completo...">
                     </div>
-                </div>
-                <div class="col-md-3">
-                    <label for="data_uscita" class="form-label">Data DDT</label>
-                    <input type="date" id="data_uscita" name="data_uscita" class="form-control" value="{{ today }}" required>
-                </div>
-                <div class="col-md-3">
-                    <label for="targa_vettore" class="form-label">Targa</label>
-                    <input type="text" id="targa_vettore" name="targa_vettore" class="form-control">
+                    <div class="col-md-4">
+                        <label class="form-label">Aspetto Beni</label>
+                        <input type="text" name="aspetto_beni" class="form-control" value="Scatole/Pallet">
+                    </div>
                 </div>
             </div>
 
-            <div class="row g-3">
-                <div class="col-md-4">
-                    <label for="causale_trasporto" class="form-label">Causale</label>
-                    <input type="text" id="causale_trasporto" name="causale_trasporto" value="TRASFERIMENTO" class="form-control">
+            <!-- ARTICOLI -->
+            <div class="form-section">
+                <h6>Articoli Selezionati</h6>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm table-ddt align-middle">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Codice</th>
+                                <th>Descrizione</th>
+                                <th>Colli</th>
+                                <th>Peso (Kg)</th>
+                                <th>Commessa</th>
+                                <th>Cliente</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for art in articoli %}
+                            <tr>
+                                <td>{{ art.id }}</td>
+                                <td>{{ art.codice_articolo }}</td>
+                                <td>{{ art.descrizione }}</td>
+                                <td><input type="number" class="form-control form-control-sm" name="colli_{{ art.id }}" value="{{ art.n_colli or 0 }}" min="0"></td>
+                                <td><input type="number" class="form-control form-control-sm" name="peso_{{ art.id }}" value="{{ art.peso or 0 }}" step="0.01" min="0"></td>
+                                <td>{{ art.commessa }}</td>
+                                <td>{{ art.cliente }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
-                <div class="col-md-4">
-                    <label for="porto" class="form-label">Porto</label>
-                    <input type="text" id="porto" name="porto" value="FRANCO" class="form-control">
-                </div>
-                <div class="col-md-4">
-                    <label for="aspetto_beni" class="form-label">Aspetto</label>
-                    <input type="text" id="aspetto_beni" name="aspetto_beni" value="A VISTA" class="form-control">
+                <div class="totali-box mt-2">
+                    Totale Colli: {{ tot_colli }} | Peso Totale: {{ '%.2f'|format(tot_peso) }} Kg
                 </div>
             </div>
-            
-            <hr>
 
-            <h5 class="mt-4">Articoli nel DDT</h5>
-            <div class="table-responsive">
-                <table class="table table-sm table-bordered">
-                    <thead class="table-light">
-                        <tr>
-                            <th style="width: 80px;">ID</th>
-                            <th>Cod.Art.</th>
-                            <th>Descrizione</th>
-                            <th style="width: 100px;">Pezzi</th>
-                            <th style="width: 100px;">Colli</th>
-                            <th style="width: 120px;">Peso</th>
-                            <th>N.Arrivo</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for art in articoli %}
-                        <tr>
-                            <td>{{ art.id }}</td>
-                            <td>{{ art.codice_articolo }}</td>
-                            <td>{{ art.descrizione }}</td>
-                            <td><input class="form-control form-control-sm" name="pezzi_{{ art.id }}" value="{{ art.pezzo or 1 }}"></td>
-                            <td><input class="form-control form-control-sm" name="colli_{{ art.id }}" value="{{ art.n_colli or 1 }}"></td>
-                            <td><input class="form-control form-control-sm" name="peso_{{ art.id }}" value="{{ art.peso or '' }}"></td>
-                            <td>{{ art.n_arrivo }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            <!-- ALTRE INFO -->
+            <div class="form-section">
+                <h6>Altri Dati</h6>
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Buono N.</label>
+                        <input type="text" name="buono_n" class="form-control">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Commessa</label>
+                        <input type="text" name="commessa" class="form-control">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Ordine</label>
+                        <input type="text" name="ordine" class="form-control">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Protocollo</label>
+                        <input type="text" name="protocollo" class="form-control">
+                    </div>
+                </div>
             </div>
-        </div>
-        <div class="card-footer bg-light d-flex justify-content-end">
-             <a href="{{ url_for('visualizza_giacenze') }}" class="btn btn-secondary">Annulla</a>
-        </div>
+
+            <!-- BOTTONI -->
+            <div class="d-flex justify-content-between mt-4">
+                <a href="{{ url_for('visualizza_giacenze') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Annulla
+                </a>
+                <div class="d-flex gap-2">
+                    <button type="submit" formaction="{{ url_for('ddt_preview') }}" formtarget="_blank" class="btn btn-info text-white">
+                        <i class="bi bi-eye-fill"></i> Anteprima PDF
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check2-circle"></i> Genera DDT
+                    </button>
+                </div>
+            </div>
+        </form>
     </div>
-</form>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    function fetchNextDDT() {
-        fetch('{{ url_for("get_next_ddt_number") }}')
+    // Ottiene automaticamente il prossimo numero DDT
+    document.addEventListener("DOMContentLoaded", () => {
+        fetch("{{ url_for('get_next_ddt_number') }}")
             .then(response => response.json())
             .then(data => {
-                if (data.next_ddt) {
-                    document.getElementById('n_ddt').value = data.next_ddt;
-                }
+                document.getElementById('n_ddt').value = data.next_ddt;
             })
-            .catch(error => console.error('Errore nel recupero del numero DDT:', error));
-    }
-
-    document.getElementById('get-next-ddt').addEventListener('click', fetchNextDDT);
-    
-    fetchNextDDT();
-});
+            .catch(err => console.error("Errore caricamento progressivo DDT:", err));
+    });
 </script>
 {% endblock %}
+
