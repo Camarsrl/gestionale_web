@@ -971,24 +971,62 @@ def ddt_preview():
     buffer.seek(0)
     return send_file(buffer, as_attachment=False, download_name='ANTEPRIMA_DDT.pdf', mimetype='application/pdf')
 
-# ---------- OPERAZIONI MULTIPLE ----------
-@app.route('/articolo/duplica')
-def duplica_articolo():
-    if session.get('role') != 'admin': abort(403)
-    ids_str = request.args.get('ids', '')
+# SOSTITUISCI la vecchia funzione 'duplica_articolo'
+# CON QUESTA NUOVA funzione 'bulk_duplicate'
+
+@app.route('/bulk/duplicate', methods=['POST'])
+def bulk_duplicate():
+    if session.get('role') != 'admin':
+        abort(403)
+        
+    ids_str = request.form.get('selected_ids')
     if not ids_str:
-        flash("Nessun articolo selezionato per la duplicazione.", "warning")
+        flash("Nessun elemento selezionato.", "warning")
         return redirect(url_for('visualizza_giacenze'))
+    
+    # La logica ora permette di duplicare un solo articolo alla volta
+    # come richiesto dal JavaScript in index.html
     original_id = ids_str.split(',')[0]
     original_articolo = Articolo.query.get_or_404(original_id)
-    nuovo_articolo = Articolo()
-    for col in Articolo.__table__.columns:
-        if col.name not in ['id', 'data_ingresso', 'n_ddt_uscita', 'data_uscita', 'buono_n']:
-            setattr(nuovo_articolo, col.name, getattr(original_articolo, col.name))
-    nuovo_articolo.data_ingresso = date.today()
-    db.session.add(nuovo_articolo)
-    db.session.commit()
-    flash(f"Articolo {original_id} duplicato con successo nel nuovo ID {nuovo_articolo.id}.", "success")
+    
+    try:
+        # Crea una nuova istanza (copia)
+        nuovo_articolo = Articolo(
+            codice_articolo=original_articolo.codice_articolo,
+            descrizione=original_articolo.descrizione,
+            cliente=original_articolo.cliente,
+            fornitore=original_articolo.fornitore,
+            data_ingresso=date.today(),  # Imposta la data di ingresso a oggi
+            n_ddt_ingresso=original_articolo.n_ddt_ingresso,
+            commessa=original_articolo.commessa,
+            ordine=original_articolo.ordine,
+            n_colli=original_articolo.n_colli,
+            peso=original_articolo.peso,
+            larghezza=original_articolo.larghezza,
+            lunghezza=original_articolo.lunghezza,
+            altezza=original_articolo.altezza,
+            m2=original_articolo.m2,
+            m3=original_articolo.m3,
+            posizione=original_articolo.posizione,
+            stato=original_articolo.stato, # Mantiene lo stato (es. 'NAZIONALE')
+            pezzo=original_articolo.pezzo,
+            protocollo=original_articolo.protocollo,
+            serial_number=original_articolo.serial_number,
+            n_arrivo=original_articolo.n_arrivo,
+            ns_rif=original_articolo.ns_rif,
+            note=original_articolo.note
+            # Non copiamo data_uscita, n_ddt_uscita, buono_n
+        )
+        db.session.add(nuovo_articolo)
+        db.session.commit()
+        flash(f"Articolo {original_id} duplicato con successo nel nuovo ID {nuovo_articolo.id}.", "success")
+    
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"Errore duplicazione: {e}", exc_info=True)
+        flash(f"Errore durante la duplicazione: {e}", "danger")
+    
+    # Reindirizza alla pagina di modifica del *nuovo* articolo
     return redirect(url_for('edit_articolo', id=nuovo_articolo.id))
 
 @app.route('/articoli/delete_bulk', methods=['POST'])
