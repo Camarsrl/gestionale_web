@@ -2,86 +2,112 @@
 
 {% block custom_css %}
 <style>
-    /* Imposta la pagina per avere la tabella con scroll indipendente */
+    /* Layout principale: evita lo scroll della pagina, solo tabella scrolla */
     .page-wrapper {
         display: flex;
         flex-direction: column;
-        height: calc(100vh - 120px); /* Altezza calcolata per riempire lo schermo meno header/footer */
-        overflow: hidden; /* Impedisce lo scroll dell'intera pagina */
+        height: calc(100vh - 120px); /* lascia spazio per navbar/header */
+        overflow: hidden; /* niente scroll globale */
     }
 
-    /* Card dei filtri non si espande verticalmente */
+    /* Card dei filtri: resta in alto, non scrolla */
     .filters-card {
         flex-shrink: 0;
+        background-color: #fff;
+        z-index: 3;
     }
 
-    /* Wrapper della tabella: questo elemento gestirà lo scroll */
+    /* --- CONTENITORE TABELLARE SCORREVOLE --- */
     .table-wrapper {
-        flex-grow: 1; /* Occupa tutto lo spazio verticale rimanente */
-        overflow: auto; /* Attiva scrollbar V e H SOLO quando necessario */
+        flex: 1 1 auto;              /* occupa tutto lo spazio restante */
+        min-height: 0;               /* NECESSARIO per flexbox scroll */
+        overflow-x: auto;            /* barra orizzontale solo se serve */
+        overflow-y: auto;            /* barra verticale solo se serve */
         border: 1px solid #dee2e6;
         border-radius: 0.25rem;
-        background-color: #ffffff; /* Sfondo bianco per la tabella */
-        min-height: 0; /* Cruciale per permettere lo scroll in un contenitore flex */
+        background-color: #fff;
+        scroll-behavior: smooth;
     }
 
+    /* Tabella principale Giacenze */
     table.table-giacenze {
-        table-layout: fixed; /* Mantiene le larghezze fisse */
-        min-width: 2900px; /* Larghezza minima per forzare scroll orizzontale */
-        font-size: 0.875rem; /* Testo leggermente più piccolo */
+        table-layout: fixed;
+        min-width: 2900px;           /* forza scroll orizzontale */
         width: 100%;
-        border-collapse: collapse; /* Bordi puliti */
+        font-size: 0.875rem;
+        border-collapse: collapse;
     }
 
-    /* Intestazioni fisse */
+    /* Intestazione fissa durante lo scroll */
     table.table-giacenze thead th {
         position: sticky;
         top: 0;
-        z-index: 2; /* Assicura che stia sopra il contenuto scrollabile */
-        background-color: #f8f9fa; /* Sfondo chiaro per l'header */
+        z-index: 4;
+        background-color: #f8f9fa;
+        border-bottom: 2px solid #dee2e6;
         text-align: center;
-        border-bottom: 2px solid #dee2e6; /* Linea di separazione robusta */
-        padding: 6px 6px; /* Aumenta leggermente il padding per leggibilità */
+        padding: 6px 6px;
     }
 
-    /* Stile delle celle */
+    /* Celle regolari */
     table.table-giacenze td,
     table.table-giacenze th {
-        white-space: normal !important; /* Testo a capo */
-        word-wrap: break-word !important;
         vertical-align: middle;
-        padding: 4px 6px; /* Padding interno celle */
-        border-bottom: 1px solid #dee2e6; /* Bordo inferiore per separare le righe */
-        border-left: 1px solid #dee2e6; /* Bordo sinistro */
+        white-space: normal !important;
+        word-wrap: break-word !important;
+        padding: 4px 6px;
+        border-bottom: 1px solid #dee2e6;
+        border-left: 1px solid #dee2e6;
     }
     table.table-giacenze th:first-child,
     table.table-giacenze td:first-child {
-        border-left: none; /* Rimuovi doppio bordo a sinistra */
+        border-left: none;
     }
-     table.table-giacenze th {
-         border-top: none; /* Rimuovi bordo sopra header */
-     }
 
-
-    /* Righe alternate */
+    /* Righe alternate per leggibilità */
     table.table-giacenze tbody tr:nth-child(even) {
-        background-color: #f8f9fa; /* Grigio chiaro per righe pari */
+        background-color: #f8f9fa;
     }
 
-    /* Footer con i totali */
+    /* Footer (totali) sempre visibile sotto la tabella */
     .card-footer {
-        flex-shrink: 0; /* Non si riduce */
+        flex-shrink: 0;
         background-color: #f8f9fa;
         border-top: 1px solid #dee2e6;
         padding: 8px 12px;
         font-size: 0.9rem;
     }
 
-    /* Larghezze fisse per ogni colonna (mantieni le tue classi) */
-    .col-check { width: 40px; } .col-azioni { width: 70px; text-align: center; } .col-id { width: 70px; } .col-codice { width: 250px; } .col-desc { width: 350px; } .col-cliente, .col-fornitore { width: 150px; } .col-data { width: 110px; } .col-stato { width: 100px; } .col-ddt { width: 120px; } .col-misure { width: 90px; text-align: right; } .col-buono, .col-commessa, .col-ordine, .col-protocollo, .col-nsrif, .col-narrivo { width: 150px; } .col-serial, .col-posizione, .col-mezzo { width: 180px; }
+    /* --- LARGHEZZE COLONNE --- */
+    .col-check { width: 40px; }
+    .col-azioni { width: 70px; text-align: center; }
+    .col-id { width: 70px; }
+    .col-codice { width: 250px; }
+    .col-desc { width: 350px; }
+    .col-cliente, .col-fornitore { width: 150px; }
+    .col-data { width: 110px; }
+    .col-stato { width: 100px; }
+    .col-ddt { width: 120px; }
+    .col-misure { width: 90px; text-align: right; }
+    .col-buono, .col-commessa, .col-ordine, .col-protocollo,
+    .col-nsrif, .col-narrivo { width: 150px; }
+    .col-serial, .col-posizione, .col-mezzo { width: 180px; }
 
+    /* Scrollbar più elegante su Chrome/Edge */
+    .table-wrapper::-webkit-scrollbar {
+        height: 10px;
+        width: 10px;
+    }
+    .table-wrapper::-webkit-scrollbar-thumb {
+        background-color: #b0b0b0;
+        border-radius: 5px;
+    }
+    .table-wrapper::-webkit-scrollbar-thumb:hover {
+        background-color: #909090;
+    }
 </style>
 {% endblock %}
+
 
 {% block content %}
 <div class="page-wrapper p-3"> <div class="d-flex justify-content-between align-items-center mb-3">
