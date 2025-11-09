@@ -228,14 +228,20 @@
                         {% endfor %}
                     </tbody>
                 </table>
-            </div> </form> <div class="card-footer text-end mt-2">
+            </div>
+        </div>
+        <div class="card-footer text-end mt-2">
             <strong>Totali merce in giacenza:</strong>
             Colli: {{ totali.colli }} |
             Peso: {{ '%.2f'|format(totali.peso) }} Kg |
             m²: {{ '%.3f'|format(totali.m2) }} |
             m³: {{ '%.3f'|format(totali.m3) }}
         </div>
-    </div> </div> <form id="bulk-delete-form" method="POST" action="{{ url_for('bulk_delete') }}" style="display: none;">
+    </div>
+
+</div>
+
+<form id="bulk-delete-form" method="POST" action="{{ url_for('bulk_delete') }}" style="display: none;">
     <input type="hidden" name="selected_ids" id="delete_ids_field">
 </form>
 
