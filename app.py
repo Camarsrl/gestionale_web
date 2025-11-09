@@ -765,9 +765,13 @@ def ddt_finalize():
 
 @app.route('/ddt/setup', methods=['GET'])
 def ddt_setup():
-    if session.get('role') != 'admin': abort(403)
+    if session.get('role') != 'admin':
+        abort(403)
+
     ids_str = request.args.get('ids', '')
-    if not ids_str: return redirect(url_for('visualizza_giacenze'))
+    if not ids_str:
+        return redirect(url_for('visualizza_giacenze'))
+
     ids = [int(i) for i in ids_str.split(',')]
     articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
 
@@ -785,11 +789,16 @@ def ddt_setup():
         try:
             with open(dest_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                if isinstance(data, dict): destinatari = data
-        except (json.JSONDecodeError, IOError): pass
+                if isinstance(data, dict):
+                    destinatari = data
+        except (json.JSONDecodeError, IOError):
+            pass
 
     tot_colli = sum(art.n_colli or 0 for art in articoli)
     tot_peso = sum(art.peso or 0 for art in articoli)
+
+    # ✅ Aggiungi filters vuoto per evitare errore nel template
+    filters = {}
 
     return render_template(
         'ddt_setup.html',
@@ -798,7 +807,8 @@ def ddt_setup():
         destinatari=destinatari,
         today=date.today().isoformat(),
         tot_colli=tot_colli,
-        tot_peso=tot_peso
+        tot_peso=tot_peso,
+        filters=filters  # 👈 FIX IMPORTANTE
     )
 
 @app.route('/ddt/preview', methods=['GET', 'POST'])
