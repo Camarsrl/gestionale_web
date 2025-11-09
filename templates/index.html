@@ -108,7 +108,7 @@
         <div class="accordion-item">
             <h2 class="accordion-header" id="headingOne">
                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFiltri" aria-expanded="false" aria-controls="collapseFiltri">
-                    Filtri di Ricerca
+                    Filtri di Ricerca (Clicca per Aprire)
                 </button>
             </h2>
             <div id="collapseFiltri" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#filtriAccordion">
@@ -159,8 +159,8 @@
                 <table class="table table-bordered table-hover table-sm table-giacenze">
                     <thead>
                         <tr class="table-light">
-                            <th class="col-check"><input type="checkbox" id="select-all" class="form-check-input"></th>
-                            <th class="col-azioni">Azioni</th>
+                            <th class="col-check no-print"><input type="checkbox" id="select-all" class="form-check-input"></th>
+                            <th class="col-azioni no-print">Azioni</th>
                             <th class="col-id">ID</th>
                             <th class="col-codice">Codice Articolo</th>
                             <th class="col-desc">Descrizione</th>
@@ -191,9 +191,9 @@
                     </thead>
                     <tbody>
                         {% for articolo in articoli %}
-                        <tr>
-                            <td><input type="checkbox" class="articolo-checkbox form-check-input" value="{{ articolo.id }}"></td>
-                            <td><a href="{{ url_for('edit_articolo', id=articolo.id) }}" class="btn btn-sm btn-primary py-0 px-1">Mod.</a></td>
+                        <tr class="{% if articolo.data_uscita %}text-muted{% endif %}">
+                            <td class="no-print"><input type="checkbox" class="articolo-checkbox form-check-input" value="{{ articolo.id }}"></td>
+                            <td class="no-print"><a href="{{ url_for('edit_articolo', id=articolo.id) }}" class="btn btn-sm btn-primary py-0 px-1">Mod.</a></td>
                             <td>{{ articolo.id or '' }}</td>
                             <td>{{ articolo.codice_articolo or '' }}</td>
                             <td>{{ articolo.descrizione or '' }}</td>
@@ -228,19 +228,14 @@
                         {% endfor %}
                     </tbody>
                 </table>
-            </div>
-        </div>
-        <div class="card-footer text-end">
+            </div> </form> <div class="card-footer text-end mt-2">
             <strong>Totali merce in giacenza:</strong>
             Colli: {{ totali.colli }} |
             Peso: {{ '%.2f'|format(totali.peso) }} Kg |
             m²: {{ '%.3f'|format(totali.m2) }} |
             m³: {{ '%.3f'|format(totali.m3) }}
         </div>
-    </div>
-</div>
-
-<form id="bulk-delete-form" method="POST" action="{{ url_for('bulk_delete') }}" style="display: none;">
+    </div> </div> <form id="bulk-delete-form" method="POST" action="{{ url_for('bulk_delete') }}" style="display: none;">
     <input type="hidden" name="selected_ids" id="delete_ids_field">
 </form>
 
@@ -273,7 +268,10 @@ document.addEventListener('DOMContentLoaded', () => {
             alert("Seleziona almeno un articolo.");
             return;
         }
-        window.location.href = `${baseUrl}?ids=${ids.join(',')}`;
+        // Crea l'URL con gli ID e reindirizza
+        const url = new URL(baseUrl, window.location.origin);
+        url.searchParams.set('ids', ids.join(','));
+        window.location.href = url.href;
     }
 
     // Funzione generica per inviare azioni POST (come Elimina e Duplica)
