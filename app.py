@@ -358,60 +358,99 @@ def etichetta_preview():
     if session.get('role') != 'admin':
         abort(403)
 
+    # --- Impostazioni formato etichetta: 62mm x 100mm in orizzontale ---
+    width = 100 * mm
+    height = 62 * mm
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer,
-        pagesize=landscape((100 * mm, 62 * mm)),
-        leftMargin=5 * mm, rightMargin=5 * mm,
-        topMargin=5 * mm, bottomMargin=5 * mm
+        pagesize=(width, height),
+        leftMargin=5 * mm,
+        rightMargin=5 * mm,
+        topMargin=4 * mm,
+        bottomMargin=4 * mm
     )
 
     styles = getSampleStyleSheet()
-    styleN = ParagraphStyle(
-        name='NormalSmall',
+    style_title = ParagraphStyle(
+        name='TitleSmall',
         parent=styles['Normal'],
-        fontSize=8, leading=10,
-        spaceAfter=1, alignment=TA_LEFT
+        fontSize=9,
+        leading=11,
+        alignment=TA_CENTER,
+        spaceAfter=4
+    )
+    style_label = ParagraphStyle(
+        name='LabelSmall',
+        parent=styles['Normal'],
+        fontSize=8,
+        leading=9,
+        alignment=TA_LEFT,
+        spaceAfter=1
     )
 
     form_data = request.form.to_dict()
+
+    # --- Campi mostrati in ordine ---
     campi_ordinati = [
-        'cliente', 'fornitore', 'ordine', 'commessa',
-        'n_ddt_ingresso', 'data_ingresso', 'n_arrivo',
-        'posizione', 'n_colli', 'protocollo'
+        ('Cliente', 'cliente'),
+        ('Fornitore', 'fornitore'),
+        ('Ordine', 'ordine'),
+        ('Commessa', 'commessa'),
+        ('N. Ddt Ingresso', 'n_ddt_ingresso'),
+        ('Data Ingresso', 'data_ingresso'),
+        ('N. Arrivo', 'n_arrivo'),
+        ('Posizione', 'posizione'),
+        ('N. Colli', 'n_colli'),
+        ('Protocollo', 'protocollo')
     ]
 
     elements = []
+
+    # --- Logo centrato in alto ---
     logo_path = STATIC_FOLDER / 'logo camar.jpg'
     if logo_path.exists():
-        logo = RLImage(logo_path, width=25 * mm, height=15 * mm)
-        elements.append(logo)
-        elements.append(Spacer(1, 3 * mm))
+        try:
+            logo = RLImage(logo_path, width=30 * mm, height=18 * mm)
+            logo.hAlign = 'CENTER'
+            elements.append(logo)
+            elements.append(Spacer(1, 2 * mm))
+        except Exception as e:
+            logging.warning(f"Logo non caricato: {e}")
 
+    # --- Titolo ---
+    elements.append(Paragraph("<b>Etichetta Articolo</b>", style_title))
+    elements.append(Spacer(1, 2 * mm))
+
+    # --- Costruzione tabella con i dati ---
     label_data = []
-    for key in campi_ordinati:
+    for label, key in campi_ordinati:
         value = form_data.get(key)
         if value and str(value).strip():
             value_str = str(value).strip()
-            value_display = (value_str[:40] + '...') if len(value_str) > 40 else value_str
-            label_text = key.replace('_', ' ').replace('n ', 'N. ').title()
-            label_p = Paragraph(f"<b>{label_text}:</b>", styleN)
-            value_p = Paragraph(value_display, styleN)
-            label_data.append([label_p, value_p])
+            # Taglia valori troppo lunghi
+            value_display = (value_str[:50] + '...') if len(value_str) > 50 else value_str
+            label_data.append([
+                Paragraph(f"<b>{label}:</b>", style_label),
+                Paragraph(value_display, style_label)
+            ])
 
     if not label_data:
         return "Nessun dato da stampare.", 400
 
-    table = Table(label_data, colWidths=[3 * cm, 6 * cm])
+    table = Table(label_data, colWidths=[3.0 * cm, 6.5 * cm])
     table.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 2),
         ('RIGHTPADDING', (0, 0), (-1, -1), 2),
         ('TOPPADDING', (0, 0), (-1, -1), 1),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
     ]))
 
     elements.append(table)
+
+    # --- Costruzione PDF ---
     try:
         doc.build(elements)
     except Exception as e:
@@ -419,7 +458,13 @@ def etichetta_preview():
         return "Errore: il testo è troppo lungo per entrare nell'etichetta.", 400
 
     buffer.seek(0)
-    return send_file(buffer, as_attachment=False, download_name='Anteprima_Etichetta.pdf', mimetype='application/pdf')
+    return send_file(
+        buffer,
+        as_attachment=False,
+        download_name='Anteprima_Etichetta.pdf',
+        mimetype='application/pdf'
+    )
+
 
 def send_email_with_attachments(to_address, subject, body_html, attachments):
     smtp_host = os.environ.get("SMTP_HOST")
