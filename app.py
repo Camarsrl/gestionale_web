@@ -353,91 +353,80 @@ def etichetta_manuale():
     clienti = [c[0] for c in clienti_query if c[0]]
     return render_template('etichetta_manuale.html', articolo=articolo_selezionato, clienti=clienti)
 
+
+
 @app.route('/etichetta/preview', methods=['POST'])
 def etichetta_preview():
-    if session.get('role') != 'admin':
+    if session.get('role') != 'admin': 
         abort(403)
 
     buffer = io.BytesIO()
-
-    # Etichetta orizzontale: 100 mm di larghezza, 62 mm di altezza
+    
+    # --- IMPOSTA LA DIMENSIONE CORRETTA: 100mm larghezza x 62mm altezza ---
     doc = SimpleDocTemplate(
         buffer,
-        pagesize=landscape((100 * mm, 62 * mm)),
-        leftMargin=6 * mm, rightMargin=6 * mm,
-        topMargin=5 * mm, bottomMargin=5 * mm
+        pagesize=landscape((100 * mm, 62 * mm)), # (larghezza, altezza)
+        leftMargin=5 * mm, rightMargin=5 * mm, topMargin=4 * mm, bottomMargin=4 * mm
     )
+    # --- FINE IMPOSTAZIONE DIMENSIONE ---
 
     styles = getSampleStyleSheet()
     styleN = ParagraphStyle(
-        name='NormalSmall',
-        parent=styles['Normal'],
-        fontSize=9,
-        leading=11,
-        spaceAfter=1,
-        alignment=TA_LEFT
+        name='NormalSmall', parent=styles['Normal'],
+        fontSize=8, leading=9, spaceAfter=1 # Ridotto leading per far stare più righe
     )
 
     form_data = request.form.to_dict()
-    campi_ordinati = [
-        'cliente', 'fornitore', 'ordine', 'commessa',
-        'n_ddt_ingresso', 'data_ingresso',
-        'n_arrivo', 'posizione', 'n_colli', 'protocollo'
-    ]
-
-    # Struttura principale
-    elements = []
-
-    # --- LOGO + intestazione ---
-    logo_path = STATIC_FOLDER / 'logo camar.jpg'
-    if logo_path.exists():
-        logo = RLImage(logo_path, width=30 * mm, height=18 * mm)
-        elements.append(logo)
-    elements.append(Spacer(1, 4 * mm))
-
-    # --- COSTRUZIONE TABELLARE DEI DATI ---
+    story_elements = []
+    
+    # 1. Prepara la tabella con i dati *SOLO SE* non sono vuoti
     label_data = []
+    # Lista dei campi da visualizzare
+    campi_ordinati = ['cliente', 'fornitore', 'ordine', 'commessa', 'n_ddt_ingresso', 'data_ingresso', 'n_arrivo', 'posizione', 'n_colli', 'protocollo']
+    
     for key in campi_ordinati:
         value = form_data.get(key)
+        # CONTROLLO: Aggiungi la riga solo se il valore esiste
         if value and str(value).strip():
-            value_str = str(value).strip()
-            # Troncamento per non superare larghezza etichetta
+            value_str = str(value)
             value_display = (value_str[:35] + '...') if len(value_str) > 35 else value_str
+            
             label_text = key.replace('_', ' ').replace('n ', 'N. ').title()
-            label_data.append([
-                Paragraph(f"<b>{label_text}:</b>", styleN),
-                Paragraph(value_display, styleN)
-            ])
+            label_p = Paragraph(f"<b>{label_text}:</b>", styleN)
+            value_p = Paragraph(value_display, styleN)
+            label_data.append([label_p, value_p])
 
     if not label_data:
         return "Nessun dato da stampare.", 400
 
-    # --- Tabella compatta ---
-    table = Table(label_data, colWidths=[32 * mm, 55 * mm])
-    table.setStyle(TableStyle([
+    data_table = Table(label_data, colWidths=[2.5 * cm, 4.5 * cm]) # Colonne dati
+    data_table.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
         ('LEFTPADDING', (0, 0), (-1, -1), 0),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 2),
-        ('TOPPADDING', (0, 0), (-1, -1), 1),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
-        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica')
     ]))
 
-    elements.append(table)
+    # 2. Prepara il logo (più piccolo)
+    logo_path = STATIC_FOLDER / 'logo camar.jpg'
+    logo = Spacer(0, 0) 
+    if logo_path.exists():
+        logo = RLImage(logo_path, width=2.5 * cm, height=1.5 * cm) # Logo 2.5cm
 
-    # --- FORZA il rendering su UNA SOLA PAGINA ---
-    doc.build(elements, onFirstPage=lambda c, d: None, onLaterPages=lambda c, d: None)
-
+    # 3. Crea una tabella principale per mettere logo (SINISTRA) e dati (DESTRA)
+    main_table = Table([[logo, data_table]], 
+                       colWidths=[3 * cm, 6.5 * cm], # 3cm per logo, 6.5cm per dati
+                       style=[('VALIGN', (0, 0), (-1, -1), 'TOP')])
+    
+    story_elements.append(main_table)
+    
+    try:
+        # Costruisce il PDF
+        doc.build(story_elements)
+    except Exception as e:
+        logging.error(f"Errore generazione etichetta: {e}")
+        return "Errore: il testo è troppo lungo per entrare nell'etichetta.", 400
+        
     buffer.seek(0)
-    return send_file(
-        buffer,
-        as_attachment=False,
-        download_name='Etichetta_Orizzontale.pdf',
-        mimetype='application/pdf'
-    )
-
-
+    return send_file(buffer, as_attachment=False, download_name='Anteprima_Etichetta.pdf', mimetype='application/pdf')
 
 def send_email_with_attachments(to_address, subject, body_html, attachments):
     smtp_host = os.environ.get("SMTP_HOST")
