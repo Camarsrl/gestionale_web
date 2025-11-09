@@ -2,6 +2,7 @@
 
 {% block custom_css %}
 <style>
+    /* Il tuo CSS (invariato) */
     .ddt-card {
         border: 1px solid #ddd;
         border-radius: 10px;
@@ -9,7 +10,6 @@
         padding: 20px;
         background-color: #fff;
     }
-
     .ddt-header {
         background-color: #0d6efd;
         color: white;
@@ -17,25 +17,10 @@
         border-radius: 8px 8px 0 0;
         margin: -20px -20px 20px -20px;
     }
-
-    .ddt-header h4 {
-        margin: 0;
-        font-size: 1.2rem;
-    }
-
-    .table-ddt {
-        font-size: 0.9rem;
-    }
-
-    .table-ddt th {
-        background-color: #f0f2f5;
-        text-align: center;
-    }
-
-    .table-ddt td {
-        vertical-align: middle;
-    }
-
+    .ddt-header h4 { margin: 0; font-size: 1.2rem; }
+    .table-ddt { font-size: 0.9rem; }
+    .table-ddt th { background-color: #f0f2f5; text-align: center; }
+    .table-ddt td { vertical-align: middle; }
     .totali-box {
         background-color: #f8f9fa;
         border: 1px solid #dee2e6;
@@ -43,7 +28,6 @@
         padding: 10px 15px;
         font-weight: 600;
     }
-
     .form-section {
         background-color: #f8f9fa;
         border: 1px solid #e0e0e0;
@@ -51,7 +35,6 @@
         padding: 15px;
         margin-bottom: 20px;
     }
-
     .form-section h6 {
         font-weight: 600;
         color: #0d6efd;
@@ -72,7 +55,6 @@
         <form method="post" action="{{ url_for('ddt_finalize') }}">
             <input type="hidden" name="ids" value="{{ ids }}">
 
-            <!-- DATI PRINCIPALI -->
             <div class="form-section">
                 <h6>Dati Principali</h6>
                 <div class="row g-3">
@@ -95,7 +77,6 @@
                 </div>
             </div>
 
-            <!-- DESTINATARIO -->
             <div class="form-section">
                 <h6>Destinatario</h6>
                 <div class="row g-3 align-items-end">
@@ -119,7 +100,6 @@
                 </div>
             </div>
 
-            <!-- ARTICOLI -->
             <div class="form-section">
                 <h6>Articoli Selezionati</h6>
                 <div class="table-responsive">
@@ -155,30 +135,35 @@
                 </div>
             </div>
 
-            <!-- ALTRE INFO -->
             <div class="form-section">
                 <h6>Altri Dati</h6>
                 <div class="row g-3">
                     <div class="col-md-3">
                         <label class="form-label">Buono N.</label>
-                        <input type="text" name="buono_n" class="form-control">
+                        <input type="text" name="buono_n" class="form-control" value="{{ articoli[0].buono_n or '' }}">
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Commessa</label>
-                        <input type="text" name="commessa" class="form-control">
+                        <input type="text" name="commessa" class="form-control" value="{{ articoli[0].commessa or '' }}">
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Ordine</label>
-                        <input type="text" name="ordine" class="form-control">
+                        <input type="text" name="ordine" class="form-control" value="{{ articoli[0].ordine or '' }}">
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Protocollo</label>
-                        <input type="text" name="protocollo" class="form-control">
+                        <input type="text" name="protocollo" class="form-control" value="{{ articoli[0].protocollo or '' }}">
                     </div>
                 </div>
-            </div>
+                
+                <div class="row g-3 mt-2">
+                    <div class="col-md-12">
+                        <label class="form-label">Note</label>
+                        <textarea name="note" class="form-control" rows="2">{{ articoli[0].note or '' }}</textarea>
+                    </div>
+                </div>
+                </div>
 
-            <!-- BOTTONI -->
             <div class="d-flex justify-content-between mt-4">
                 <a href="{{ url_for('visualizza_giacenze') }}" class="btn btn-outline-secondary">
                     <i class="bi bi-arrow-left"></i> Annulla
@@ -199,7 +184,6 @@
 
 {% block extra_js %}
 <script>
-    // Ottiene automaticamente il prossimo numero DDT
     document.addEventListener("DOMContentLoaded", () => {
         fetch("{{ url_for('get_next_ddt_number') }}")
             .then(response => response.json())
@@ -210,4 +194,3 @@
     });
 </script>
 {% endblock %}
-
