@@ -147,147 +147,136 @@ def _logo_flowable(max_w=60*mm, max_h=25*mm, hAlign='LEFT'):
 # ---------- DDT: LAYOUT GRAFICO MIGLIORATO ----------
 # Sostituisci QUESTA funzione nel tuo file app.py
 
-def generate_ddt_pdf(buffer, ddt_data, articoli, destinatario_info):
-    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1*cm, bottomMargin=1*cm, leftMargin=1.5*cm, rightMargin=1.5*cm)
-    story = []
+@app.route('/ddt/preview', methods=['POST'])
+def ddt_preview():
+    if session.get('role') != 'admin':
+        abort(403)
+
+    from reportlab.lib.pagesizes import A4
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    from reportlab.lib.units import mm
+    import io
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        leftMargin=15 * mm, rightMargin=15 * mm,
+        topMargin=15 * mm, bottomMargin=15 * mm
+    )
+
     styles = getSampleStyleSheet()
-    
-    # Stili personalizzati
-    styleHeader = ParagraphStyle('Header', parent=styles['Normal'], fontSize=9, leading=11)
-    styleBody = ParagraphStyle('Body', parent=styles['Normal'], fontSize=8, leading=10)
-    styleTitle = ParagraphStyle('Title', parent=styles['h1'], fontSize=14, alignment=TA_CENTER, textColor=colors.white, fontName='Helvetica-Bold')
+    styleH = ParagraphStyle(name='Header', fontSize=14, leading=16, alignment=TA_CENTER, spaceAfter=8, spaceBefore=4, bold=True)
+    styleN = ParagraphStyle(name='Normal', fontSize=9, leading=11, alignment=TA_LEFT)
+    styleB = ParagraphStyle(name='Bold', fontSize=9, leading=11, alignment=TA_LEFT)
 
-    # --- 1. Intestazione (Logo, Mittente, Destinatario) ---
-    logo_path = STATIC_FOLDER / 'logo camar.jpg'
-    logo = RLImage(logo_path, width=5*cm, height=2.5*cm) if logo_path.exists() else Spacer(0, 0)
-    
-    mittente_text = """<b>Mittente</b><br/>CAMAR S.R.L.<br/>Via Luigi Canepa, 2<br/>16165 Genova (GE)<br/>P.IVA / C.F. 03429300101"""
-    mittente_p = Paragraph(mittente_text, styleHeader)
+    form = request.form.to_dict()
 
-    dest_rag_soc = destinatario_info.get('ragione_sociale', '')
-    dest_indirizzo = destinatario_info.get('indirizzo', '')
-    dest_piva = destinatario_info.get('piva', '')
-    destinatario_text = f"""<b>Destinatario</b><br/>{dest_rag_soc}<br/>{dest_indirizzo}<br/>P.IVA: {dest_piva}"""
-    destinatario_p = Paragraph(destinatario_text, styleHeader)
+    elements = []
 
-    header_table = Table([[logo, mittente_p, destinatario_p]], 
-                         colWidths=[6*cm, 6*cm, 6*cm], 
-                         style=[('VALIGN', (0,0), (-1,-1), 'TOP')])
-    story.append(header_table)
-    story.append(Spacer(1, 0.5*cm))
+    # LOGO
+    logo_path = Path(STATIC_FOLDER) / 'logo camar.jpg'
+    if logo_path.exists():
+        logo = Image(str(logo_path), width=40 * mm, height=25 * mm)
+        elements.append(logo)
+    elements.append(Spacer(1, 5))
 
-    # --- 2. Barra Titolo Blu ---
-    title_p = Paragraph("DOCUMENTO DI TRASPORTO (DDT)", styleTitle)
-    title_table = Table([[title_p]], 
-                        colWidths=[18*cm], 
-                        style=[('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#3473B1')),
-                               ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-                               ('TOPPADDING', (0,0), (-1,-1), 8),
-                               ('BOTTOMPADDING', (0,0), (-1,-1), 8)])
-    story.append(title_table)
-    story.append(Spacer(1, 0.5*cm))
+    # TITOLO
+    elements.append(Paragraph("<b>DOCUMENTO DI TRASPORTO (DDT)</b>", styleH))
+    elements.append(Spacer(1, 6))
 
-    # --- 3. Dati Aggiuntivi e Dati Documento ---
-    primo_articolo = articoli[0] if articoli else None
-    commessa = primo_articolo.commessa if primo_articolo else ''
-    ordine = primo_articolo.ordine if primo_articolo else ''
-    buono_n = primo_articolo.buono_n if primo_articolo else ''
-    protocollo = primo_articolo.protocollo if primo_articolo else ''
-    
-    dati_agg_text = f"""
-        <b>Commessa:</b> {commessa or ''}<br/>
-        <b>Ordine:</b> {ordine or ''}<br/>
-        <b>Buono:</b> {buono_n or ''}<br/>
-        <b>Protocollo:</b> {protocollo or ''}
-    """
-    dati_agg_p = Paragraph(dati_agg_text, styleHeader)
-    
-    data_uscita_str = ""
-    data_uscita_obj = parse_date_safe(ddt_data.get('data_uscita'))
-    if data_uscita_obj:
-        data_uscita_str = data_uscita_obj.strftime('%d/%m/%Y')
-        
-    dati_doc_text = f"""
-        <b>N. DDT:</b> {ddt_data.get('n_ddt', 'N/A')}<br/>
-        <b>Data Uscita:</b> {data_uscita_str}<br/>
-        <b>Targa:</b> {ddt_data.get('targa', '') or ''}
-    """
-    dati_doc_p = Paragraph(dati_doc_text, styleHeader)
+    # MITTENTE/DESTINATARIO
+    mittente = Paragraph(
+        "<b>Mittente</b><br/>Camar srl<br/>Via Luigi Canepa 2<br/>16165 Genova Struppa (GE)",
+        styleN
+    )
+    destinatario = Paragraph(
+        f"<b>Destinatario</b><br/>{form.get('cliente','') or '---'}<br/>{form.get('indirizzo','') or ''}",
+        styleN
+    )
+    tab_md = Table([[mittente, destinatario]], colWidths=[85*mm, 85*mm])
+    tab_md.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP')]))
+    elements.append(tab_md)
+    elements.append(Spacer(1, 8))
 
-    # Tabella per Dati Aggiuntivi e Dati Documento
-    dati_table_style = TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('BOX', (0,0), (-1,-1), 1, colors.black),
-        ('GRID', (0,0), (0,-1), 1, colors.black), # Solo linea verticale
-        ('TOPPADDING', (0,0), (-1,-1), 5),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 5),
-    ])
-    dati_table = Table([[Paragraph("<b>Dati Aggiuntivi</b>", styleHeader), Paragraph("<b>Dati Documento</b>", styleHeader)],
-                        [dati_agg_p, dati_doc_p]], 
-                       colWidths=[9*cm, 9*cm], style=dati_table_style, rowHeights=[None, 1.8*cm])
-    
-    story.append(dati_table)
-    story.append(Spacer(1, 0.5*cm))
-
-    # --- 4. Tabella Articoli ---
-    story.append(Paragraph("<b>Articoli nel DDT</b>", styleHeader))
-    story.append(Spacer(1, 0.2*cm))
-
-    # Colonne come da esempio ddt.jpg
-    data = [["ID", "Cod.Art.", "Descrizione", "Pezzi", "Colli", "Peso Kg", "N.Arrivo"]]
-    total_colli, total_peso = 0, 0
-
-    for art in articoli:
-        data.append([
-            str(art.id or ''),
-            Paragraph(art.codice_articolo or '', styleBody),
-            Paragraph(art.descrizione or '', styleBody),
-            str(art.pezzo or ''), # Aggiunto Pezzi
-            str(art.n_colli or ''),
-            str(art.peso or ''),
-            Paragraph(art.n_arrivo or '', styleBody)
-        ])
-        total_colli += art.n_colli or 0
-        total_peso += art.peso or 0
-
-    tab = Table(data, colWidths=[1.5*cm, 3*cm, 7.5*cm, 1.5*cm, 1.5*cm, 1.5*cm, 1.5*cm])
-    tab.setStyle(TableStyle([
-        ('GRID', (0,0), (-1,-1), 1, colors.black),
-        ('BACKGROUND', (0,0), (-1,0), colors.lightgrey),
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('ALIGN', (3,1), (-1,-1), 'RIGHT'), # Allinea Pezzi, Colli, Peso a destra
-        ('ALIGN', (0,1), (1,-1), 'CENTER'), # Allinea ID e Cod.Art al centro
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0,0), (-1,-1), 8),
+    # DATI AGGIUNTIVI
+    dati = [
+        ['Commessa', form.get('commessa','')],
+        ['Ordine', form.get('ordine','')],
+        ['Buono', form.get('buono','')],
+        ['Protocollo', form.get('protocollo','')],
+        ['N. DDT', form.get('n_ddt','')],
+        ['Data Uscita', form.get('data_uscita','')],
+        ['Targa', form.get('targa','')]
+    ]
+    tab_dati = Table(dati, colWidths=[35*mm, 120*mm])
+    tab_dati.setStyle(TableStyle([
+        ('GRID',(0,0),(-1,-1),0.25,colors.black),
+        ('BACKGROUND',(0,0),(1,0),colors.HexColor("#dfe9f5")),
+        ('FONT',(0,0),(-1,-1),'Helvetica',9),
     ]))
-    story.append(tab)
-    story.append(Spacer(1, 0.5*cm))
+    elements.append(tab_dati)
+    elements.append(Spacer(1, 8))
 
-    # --- 5. Footer (Causale, Porto, Aspetto) ---
-    footer_data = [
-        [Paragraph(f"<b>Causale:</b> {ddt_data.get('causale_trasporto','C/Lavorazione')}", styleHeader),
-         Paragraph(f"<b>Porto:</b> {ddt_data.get('porto','Franco')}", styleHeader),
-         Paragraph(f"<b>Aspetto:</b> {ddt_data.get('aspetto_beni','Scatole/Pallet')}", styleHeader)],
+    # ARTICOLI
+    articoli = [
+        ['ID','Cod.Art.','Descrizione','Pezzi','Colli','Peso','N.Arrivo']
     ]
-    footer_table = Table(footer_data, colWidths=[6*cm, 6*cm, 6*cm], style=[
-        ('BOX', (0,0), (-1,-1), 1, colors.black),
-        ('GRID', (0,0), (-1,-1), 1, colors.black)
+    articoli.append([
+        form.get('id',''),
+        form.get('codice_articolo',''),
+        form.get('descrizione',''),
+        form.get('pezzi',''),
+        form.get('colli',''),
+        form.get('peso',''),
+        form.get('n_arrivo','')
     ])
-    story.append(footer_table)
-    story.append(Spacer(1, 0.5*cm))
+    tab_art = Table(articoli, colWidths=[18*mm, 40*mm, 50*mm, 18*mm, 18*mm, 22*mm, 22*mm])
+    tab_art.setStyle(TableStyle([
+        ('GRID',(0,0),(-1,-1),0.25,colors.black),
+        ('BACKGROUND',(0,0),(-1,0),colors.HexColor("#e7f0fa")),
+        ('ALIGN',(3,1),(-1,-1),'CENTER'),
+        ('FONT',(0,0),(-1,-1),'Helvetica',9)
+    ]))
+    elements.append(Paragraph("<b>Articoli nel DDT</b>", styleB))
+    elements.append(tab_art)
+    elements.append(Spacer(1, 10))
 
-    # --- 6. Totali e Firme ---
-    totali_firme_data = [
-        [Paragraph(f"<b>Totale Colli:</b> {total_colli}", styleHeader),
-         Paragraph(f"<b>Totale Peso:</b> {total_peso:.2f}", styleHeader),
-         Paragraph(f"<b>Firma Vettore:</b> ___________________", styleHeader)]
+    # CAUSALE / PORTO / ASPETTO
+    causale = [
+        ['Causale', 'TRASFERIMENTO'],
+        ['Porto', 'FRANCO'],
+        ['Aspetto', 'A VISTA']
     ]
-    totali_firme_table = Table(totali_firme_data, colWidths=[4*cm, 4*cm, 10*cm])
-    story.append(totali_firme_table)
-    story.append(Spacer(1, 1*cm))
-    story.append(Paragraph(f"<b>Firma Destinatario:</b> ___________________", styleHeader))
+    tab_causale = Table(causale, colWidths=[35*mm, 120*mm])
+    tab_causale.setStyle(TableStyle([
+        ('GRID',(0,0),(-1,-1),0.25,colors.black),
+        ('FONT',(0,0),(-1,-1),'Helvetica',9)
+    ]))
+    elements.append(tab_causale)
+    elements.append(Spacer(1, 8))
 
-    doc.build(story)
+    # TOTALI
+    totali = [
+        [f"<b>Totale Colli:</b> {form.get('colli','0')}",
+         f"<b>Totale Peso:</b> {form.get('peso','0')} Kg",
+         "Firma Vettore: ___________________________"]
+    ]
+    tab_tot = Table(totali, colWidths=[50*mm, 50*mm, 60*mm])
+    tab_tot.setStyle(TableStyle([
+        ('FONT',(0,0),(-1,-1),'Helvetica',9),
+        ('ALIGN',(0,0),(-1,-1),'LEFT')
+    ]))
+    elements.append(tab_tot)
+
+    # BUILD PDF
+    doc.build(elements)
+    buffer.seek(0)
+    return send_file(buffer, as_attachment=False, download_name="DDT_Camar.pdf", mimetype='application/pdf')
+
 # ---------- BUONO PRELIEVO (con logo) ----------
 def generate_buono_prelievo_pdf(buffer, dati_buono, articoli):
     doc = SimpleDocTemplate(
