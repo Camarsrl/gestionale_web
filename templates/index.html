@@ -260,62 +260,86 @@
 
 {% block extra_js %}
 <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        // Logica per il checkbox "seleziona tutto"
-        const selectAll = document.getElementById('select-all');
-        if(selectAll) {
-            selectAll.addEventListener('change', e => {
-                document.querySelectorAll('.articolo-checkbox').forEach(cb => cb.checked = e.target.checked);
-            });
-        }
+document.addEventListener('DOMContentLoaded', () => {
+    /* --- GESTIONE SCROLL INTERNO ALLA TABELLA --- */
+    const tableWrapper = document.querySelector('.table-wrapper');
+    if (tableWrapper) {
+        // Imposta altezza dinamica rispetto alla finestra visibile
+        const resizeTableWrapper = () => {
+            const headerHeight = document.querySelector('.navbar')?.offsetHeight || 0;
+            const footerHeight = document.querySelector('.card-footer')?.offsetHeight || 0;
+            const filtersHeight = document.querySelector('.filters-card')?.offsetHeight || 0;
+            const availableHeight = window.innerHeight - (headerHeight + footerHeight + filtersHeight + 40);
+            tableWrapper.style.maxHeight = availableHeight + 'px';
+        };
+        resizeTableWrapper();
+        window.addEventListener('resize', resizeTableWrapper);
+    }
 
-        // Funzione helper per ottenere gli ID selezionati
-        function getSelectedIds() {
-            return Array.from(document.querySelectorAll('.articolo-checkbox:checked')).map(cb => cb.value);
-        }
+    /* --- SELEZIONA TUTTO --- */
+    const selectAll = document.getElementById('select-all');
+    if (selectAll) {
+        selectAll.addEventListener('change', e => {
+            document.querySelectorAll('.articolo-checkbox').forEach(cb => cb.checked = e.target.checked);
+        });
+    }
 
-        // Funzione generica per reindirizzare alle pagine delle azioni bulk
-        function handleBulkAction(baseUrl) {
-            const ids = getSelectedIds();
-            if (ids.length === 0) {
-                alert("Seleziona almeno un articolo.");
-                return;
-            }
-            // Gestione caso speciale per "Duplica" (solo 1 articolo)
-            if (baseUrl.includes('duplica_articolo') && ids.length > 1) {
-                alert("Puoi duplicare solo un articolo per volta.");
-                return;
-            }
-            // Reindirizzamento
-            window.location.href = `${baseUrl}?ids=${ids.join(',')}`;
-        }
+    /* --- OTTIENI ID SELEZIONATI --- */
+    function getSelectedIds() {
+        return Array.from(document.querySelectorAll('.articolo-checkbox:checked')).map(cb => cb.value);
+    }
 
-        // Funzione per gestire l'eliminazione multipla tramite form POST
-        function deleteSelected() {
-            const ids = getSelectedIds();
-            if (ids.length === 0) {
-                alert("Seleziona almeno un articolo da eliminare.");
-                return;
-            }
-            if (confirm(`Sei sicuro di voler eliminare ${ids.length} articoli? L'azione è irreversibile.`)) {
-                const form = document.getElementById('bulk-delete-form');
-                const idsField = document.getElementById('delete_ids_field');
-                if(form && idsField){
-                    idsField.value = ids.join(',');
-                    form.submit();
-                } else {
-                    console.error("Form di eliminazione non trovato.");
-                }
+    /* --- AZIONI MULTIPLE --- */
+    function handleBulkAction(baseUrl) {
+        const ids = getSelectedIds();
+        if (ids.length === 0) {
+            alert("⚠️ Seleziona almeno un articolo.");
+            return;
+        }
+        // Se duplico: solo 1 articolo
+        if (baseUrl.includes('duplica_articolo') && ids.length > 1) {
+            alert("⚠️ Puoi duplicare solo un articolo per volta.");
+            return;
+        }
+        // Reindirizza all’azione
+        window.location.href = `${baseUrl}?ids=${ids.join(',')}`;
+    }
+
+    /* --- ELIMINAZIONE MULTIPLA (POST) --- */
+    function deleteSelected() {
+        const ids = getSelectedIds();
+        if (ids.length === 0) {
+            alert("⚠️ Seleziona almeno un articolo da eliminare.");
+            return;
+        }
+        if (confirm(`❌ Vuoi eliminare ${ids.length} articoli? L'azione è irreversibile.`)) {
+            const form = document.getElementById('bulk-delete-form');
+            const idsField = document.getElementById('delete_ids_field');
+            if (form && idsField) {
+                idsField.value = ids.join(',');
+                form.submit();
+            } else {
+                console.error("Form di eliminazione non trovato.");
             }
         }
+    }
 
-        // Associa le funzioni ai pulsanti corrispondenti
-        document.getElementById('btn-buono')?.addEventListener('click', () => handleBulkAction('{{ url_for('buono_setup') }}'));
-        document.getElementById('btn-ddt')?.addEventListener('click', () => handleBulkAction('{{ url_for('ddt_setup') }}'));
-        document.getElementById('btn-edit-multiple')?.addEventListener('click', () => handleBulkAction('{{ url_for('edit_multiple') }}'));
-        document.getElementById('btn-duplicate')?.addEventListener('click', () => handleBulkAction('{{ url_for('duplica_articolo') }}'));
-        document.getElementById('btn-create-label')?.addEventListener('click', () => handleBulkAction('{{ url_for('etichetta_manuale') }}'));
-        document.getElementById('btn-delete-selected')?.addEventListener('click', deleteSelected);
-    });
+    /* --- COLLEGA I PULSANTI --- */
+    document.getElementById('btn-buono')?.addEventListener('click', () => handleBulkAction('{{ url_for("buono_setup") }}'));
+    document.getElementById('btn-ddt')?.addEventListener('click', () => handleBulkAction('{{ url_for("ddt_setup") }}'));
+    document.getElementById('btn-edit-multiple')?.addEventListener('click', () => handleBulkAction('{{ url_for("edit_multiple") }}'));
+    document.getElementById('btn-duplicate')?.addEventListener('click', () => handleBulkAction('{{ url_for("duplica_articolo") }}'));
+    document.getElementById('btn-create-label')?.addEventListener('click', () => handleBulkAction('{{ url_for("etichetta_manuale") }}'));
+    document.getElementById('btn-delete-selected')?.addEventListener('click', deleteSelected);
+
+    /* --- MIGLIORIA: SCROLL FLUIDO CON TABELLA STICKY HEADER --- */
+    const thead = document.querySelector('.table-giacenze thead');
+    if (tableWrapper && thead) {
+        tableWrapper.addEventListener('scroll', () => {
+            const scrollLeft = tableWrapper.scrollLeft;
+            thead.style.transform = `translateX(-${scrollLeft}px)`;
+        });
+    }
+});
 </script>
 {% endblock %}
