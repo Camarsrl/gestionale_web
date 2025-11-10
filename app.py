@@ -702,7 +702,7 @@ def get_next_ddt_number():
         abort(403)
     return jsonify({'next_ddt': next_ddt_number()})
 
-# ---------- DDT SETUP / PREVIEW / FINALIZE ----------
+
 @app.route('/ddt/finalize', methods=['POST'])
 def ddt_finalize():
     if session.get('role') != 'admin':
@@ -731,7 +731,6 @@ def ddt_finalize():
     for art in articoli:
         art.n_ddt_uscita = n_ddt
         art.data_uscita = data_uscita
-        # NON impostare automaticamente lo stato
         art.pezzo = to_int_safe(request.form.get(f"pezzi_{art.id}", art.pezzo))
         art.n_colli = to_int_safe(request.form.get(f"colli_{art.id}", art.n_colli))
         art.peso = to_float_safe(request.form.get(f"peso_{art.id}", art.peso))
@@ -739,21 +738,28 @@ def ddt_finalize():
 
     # Dati destinatario
     dest_path = CONFIG_FOLDER / 'destinatari_saved.json'
-    destinatari = {}
+    destinatari_dict = {} # <-- Useremo un dizionario
     if dest_path.exists():
         try:
             with open(dest_path, 'r', encoding='utf-8') as f:
-                destinatari = json.load(f) if isinstance(json.load(f), dict) else {}
+                data = json.load(f)
+                # --- INIZIO CORREZIONE ---
+                if isinstance(data, list):
+                    for item in data:
+                        nome_key = item.get('nome')
+                        if nome_key:
+                            destinatari_dict[nome_key] = {
+                                'ragione_sociale': item.get('nome', ''),
+                                'indirizzo': item.get('indirizzo', ''),
+                                'piva': item.get('piva', '')
+                            }
+                elif isinstance(data, dict):
+                    destinatari_dict = data
+                # --- FINE CORREZIONE ---
         except Exception:
-            try:
-                with open(dest_path, 'r', encoding='utf-8') as f:
-                    destinatari = json.load(f)
-                if not isinstance(destinatari, dict):
-                    destinatari = {}
-            except Exception:
-                destinatari = {}
+            pass # Fallback a dizionario vuoto
 
-    destinatario_scelto = destinatari.get(request.form.get('destinatario_key'), {})
+    destinatario_scelto = destinatari_dict.get(request.form.get('destinatario_key'), {})
 
     buffer = io.BytesIO()
     generate_ddt_pdf(buffer, request.form, articoli, destinatario_scelto)
@@ -762,8 +768,6 @@ def ddt_finalize():
     flash(f"Articoli aggiornati con DDT N. {n_ddt}. I dati sono stati salvati.", "success")
     download_name = f'DDT_{n_ddt.replace("/", "-")}.pdf'
     return send_file(buffer, as_attachment=True, download_name=download_name, mimetype='application/pdf')
-
-
 @app.route('/ddt/setup', methods=['GET'])
 def ddt_setup():
     if session.get('role') != 'admin': abort(403)
