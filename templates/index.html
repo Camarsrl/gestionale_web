@@ -1,7 +1,5 @@
 {% extends "layout.html" %}
 
-{# Il blocco custom_css è stato rimosso da qui #}
-
 {% block content %}
 
 <style>
@@ -12,7 +10,7 @@
         height: calc(100vh - 120px); /* Altezza calcolata per riempire lo schermo meno header/footer */
         overflow: hidden; /* Impedisce lo scroll dell'intera pagina */
         padding: 1rem; /* Aggiunge un po' d'aria intorno */
-        width: 100%; /* <-- QUESTA RIGA ORA È CORRETTA E ATTIVA */
+        width: 100%; /* Impedisce lo scroll orizzontale della pagina */
     }
 
     /* Card dei filtri non si espande verticalmente */
@@ -154,6 +152,7 @@
                  <button type="button" class="btn btn-sm btn-info text-white" id="btn-edit-multiple">Modifica Selez.</button>
                  <button type="button" class="btn btn-sm btn-warning" id="btn-duplicate">Duplica Selez.</button>
                  <button type="button" class="btn btn-sm btn-danger" id="btn-delete-selected">Elimina Selez.</button>
+                 <button type="button" class="btn btn-sm btn-success" id="btn-email">Invia Email</button>
             </div>
 
             <div class="table-wrapper">
@@ -249,6 +248,41 @@
 <form id="bulk-duplicate-form" method="POST" action="{{ url_for('bulk_duplicate') }}" style="display: none;">
     <input type="hidden" name="selected_ids" id="duplicate_ids_field">
 </form>
+
+
+<div class="modal fade" id="emailModal" tabindex="-1" aria-labelledby="emailModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="emailModalLabel">Invia Allegati via Email</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+            </div>
+            <form id="email-form" method="POST" action="{{ url_for('invia_email') }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="email_destinatario" class="form-label">Destinatario (*)</label>
+                        <input type="email" class="form-control" id="email_destinatario" name="email_destinatario" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="email_oggetto" class="form-label">Oggetto (*)</label>
+                        <input type="text" class="form-control" id="email_oggetto" name="email_oggetto" value="Invio documenti" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Allegati Trovati:</label>
+                        <div id="allegati-lista" class="border p-2" style="height: 150px; overflow-y: auto;">
+                            <p class="text-muted" id="allegati-placeholder">Nessun allegato trovato per gli articoli selezionati.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary" id="email-submit-btn">Invia Email</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 
@@ -327,6 +361,67 @@ document.addEventListener('DOMContentLoaded', () => {
         `Sei sicuro di voler eliminare ${getSelectedIds().length} articoli? L'azione è irreversibile.`,
         false // false = articoli multipli permessi
     ));
+
+    // --- NUOVO SCRIPT PER EMAIL ---
+    const emailModal = new bootstrap.Modal(document.getElementById('emailModal'));
+    const allegatiLista = document.getElementById('allegati-lista');
+    const allegatiPlaceholder = document.getElementById('allegati-placeholder');
+    const emailSubmitBtn = document.getElementById('email-submit-btn');
+
+    document.getElementById('btn-email')?.addEventListener('click', async () => {
+        const ids = getSelectedIds();
+        if (ids.length === 0) {
+            alert("Seleziona almeno un articolo per cui inviare allegati.");
+            return;
+        }
+
+        // Resetta la lista
+        allegatiLista.innerHTML = '';
+        allegatiPlaceholder.style.display = 'block';
+        emailSubmitBtn.disabled = true;
+
+        try {
+            // Chiama l'API per ottenere gli allegati
+            const response = await fetch(`{{ url_for('get_attachments') }}?ids=${ids.join(',')}`);
+            if (!response.ok) {
+                throw new Error('Errore nel caricamento degli allegati.');
+            }
+            const allegati = await response.json();
+
+            if (allegati.length > 0) {
+                allegatiPlaceholder.style.display = 'none';
+                allegati.forEach(att => {
+                    const div = document.createElement('div');
+                    div.className = 'form-check';
+                    div.innerHTML = `
+                        <input class="form-check-input" type="checkbox" name="allegati_selezionati" value="${att.id}" id="att-${att.id}" checked>
+                        <label class="form-check-label" for="att-${att.id}">
+                            ${att.filename} (Art. ${att.articolo_id})
+                        </label>
+                    `;
+                    allegatiLista.appendChild(div);
+                });
+                emailSubmitBtn.disabled = false;
+            } else {
+                allegatiPlaceholder.textContent = 'Nessun allegato trovato per gli articoli selezionati.';
+            }
+
+        } catch (error) {
+            console.error('Errore fetch allegati:', error);
+            allegatiPlaceholder.textContent = 'Errore nel caricamento degli allegati.';
+        }
+        
+        emailModal.show();
+    });
+
+    // Validazione form email
+    document.getElementById('email-form')?.addEventListener('submit', e => {
+        const allegatiSelezionati = document.querySelectorAll('input[name="allegati_selezionati"]:checked');
+        if (allegatiSelezionati.length === 0) {
+            e.preventDefault();
+            alert('Seleziona almeno un allegato da inviare.');
+        }
+    });
 });
 </script>
 {% endblock %}
