@@ -1,6 +1,9 @@
 {% extends "layout.html" %}
 
-{% block custom_css %}
+{# Il blocco custom_css è stato rimosso da qui #}
+
+{% block content %}
+
 <style>
     /* Imposta la pagina per avere la tabella con scroll indipendente */
     .page-wrapper {
@@ -92,9 +95,6 @@
     .col-nsrif, .col-narrivo { width: 150px; }
     .col-serial, .col-posizione, .col-mezzo { width: 180px; }
 </style>
-{% endblock %}
-
-{% block content %}
 <div class="page-wrapper">
 
     <div class="d-flex justify-content-between align-items-center mb-3">
