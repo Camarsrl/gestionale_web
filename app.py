@@ -763,15 +763,12 @@ def ddt_finalize():
     download_name = f'DDT_{n_ddt.replace("/", "-")}.pdf'
     return send_file(buffer, as_attachment=True, download_name=download_name, mimetype='application/pdf')
 
+
 @app.route('/ddt/setup', methods=['GET'])
 def ddt_setup():
-    if session.get('role') != 'admin':
-        abort(403)
-
+    if session.get('role') != 'admin': abort(403)
     ids_str = request.args.get('ids', '')
-    if not ids_str:
-        return redirect(url_for('visualizza_giacenze'))
-
+    if not ids_str: return redirect(url_for('visualizza_giacenze'))
     ids = [int(i) for i in ids_str.split(',')]
     articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
 
@@ -784,31 +781,40 @@ def ddt_setup():
             return redirect(url_for('visualizza_giacenze'))
 
     dest_path = CONFIG_FOLDER / 'destinatari_saved.json'
-    destinatari = {}
+    destinatari_dict = {} # <-- Useremo un dizionario
     if dest_path.exists():
         try:
             with open(dest_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                if isinstance(data, dict):
-                    destinatari = data
-        except (json.JSONDecodeError, IOError):
-            pass
+                # --- INIZIO CORREZIONE ---
+                # Se è una lista (come nel tuo file), la convertiamo in dizionario
+                if isinstance(data, list):
+                    for item in data:
+                        # Usa 'nome' come chiave e come 'ragione_sociale'
+                        nome_key = item.get('nome')
+                        if nome_key:
+                            destinatari_dict[nome_key] = {
+                                'ragione_sociale': item.get('nome', ''),
+                                'indirizzo': item.get('indirizzo', ''),
+                                'piva': item.get('piva', '') # Aggiungi piva se esiste
+                            }
+                # Se è già un dizionario, lo usiamo
+                elif isinstance(data, dict):
+                    destinatari_dict = data
+                # --- FINE CORREZIONE ---
+        except (json.JSONDecodeError, IOError): pass
 
     tot_colli = sum(art.n_colli or 0 for art in articoli)
     tot_peso = sum(art.peso or 0 for art in articoli)
-
-    # ✅ Aggiungi filters vuoto per evitare errore nel template
-    filters = {}
 
     return render_template(
         'ddt_setup.html',
         articoli=articoli,
         ids=ids_str,
-        destinatari=destinatari,
+        destinatari=destinatari_dict, # <-- Passiamo il dizionario corretto
         today=date.today().isoformat(),
         tot_colli=tot_colli,
-        tot_peso=tot_peso,
-        filters=filters  # 👈 FIX IMPORTANTE
+        tot_peso=tot_peso
     )
 
 @app.route('/ddt/preview', methods=['GET', 'POST'])
