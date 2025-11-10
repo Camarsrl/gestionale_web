@@ -801,7 +801,13 @@ def ddt_finalize():
 
     flash(f"Articoli aggiornati con DDT N. {n_ddt}. I dati sono stati salvati.", "success")
     download_name = f'DDT_{n_ddt.replace("/", "-")}.pdf'
-    return send_file(buffer, as_attachment=True, download_name=download_name, mimetype='application/pdf'
+    return send_file(buffer, as_attachment=True, download_name=download_name, mimetype='application/pdf')
+
+
+
+
+
+                     
 # SOSTITUISCI QUESTA FUNZIONE in app.py
 @app.route('/ddt/setup', methods=['GET'])
 def ddt_setup():
