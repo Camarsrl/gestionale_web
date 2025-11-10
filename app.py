@@ -226,6 +226,7 @@ def etichetta_manuale():
 
 
 
+# SOSTITUISCI QUESTA FUNZIONE in app.py
 @app.route('/etichetta/preview', methods=['POST'])
 def etichetta_preview():
     if session.get('role') != 'admin': 
@@ -233,31 +234,29 @@ def etichetta_preview():
 
     buffer = io.BytesIO()
     
-    # --- IMPOSTA LA DIMENSIONE CORRETTA: 100mm larghezza x 62mm altezza ---
+    # --- INIZIO CORREZIONE ---
+    # Rimuoviamo 'landscape()' e impostiamo direttamente Larghezza=100mm, Altezza=62mm
     doc = SimpleDocTemplate(
         buffer,
-        pagesize=landscape((100 * mm, 62 * mm)), # (larghezza, altezza)
+        pagesize=(100 * mm, 62 * mm), # (larghezza, altezza)
         leftMargin=5 * mm, rightMargin=5 * mm, topMargin=4 * mm, bottomMargin=4 * mm
     )
-    # --- FINE IMPOSTAZIONE DIMENSIONE ---
+    # --- FINE CORREZIONE ---
 
     styles = getSampleStyleSheet()
     styleN = ParagraphStyle(
         name='NormalSmall', parent=styles['Normal'],
-        fontSize=8, leading=9, spaceAfter=1 # Ridotto leading per far stare più righe
+        fontSize=8, leading=9, spaceAfter=1
     )
 
     form_data = request.form.to_dict()
     story_elements = []
     
-    # 1. Prepara la tabella con i dati *SOLO SE* non sono vuoti
     label_data = []
-    # Lista dei campi da visualizzare
     campi_ordinati = ['cliente', 'fornitore', 'ordine', 'commessa', 'n_ddt_ingresso', 'data_ingresso', 'n_arrivo', 'posizione', 'n_colli', 'protocollo']
     
     for key in campi_ordinati:
         value = form_data.get(key)
-        # CONTROLLO: Aggiungi la riga solo se il valore esiste
         if value and str(value).strip():
             value_str = str(value)
             value_display = (value_str[:35] + '...') if len(value_str) > 35 else value_str
@@ -270,27 +269,24 @@ def etichetta_preview():
     if not label_data:
         return "Nessun dato da stampare.", 400
 
-    data_table = Table(label_data, colWidths=[2.5 * cm, 4.5 * cm]) # Colonne dati
+    data_table = Table(label_data, colWidths=[2.5 * cm, 4.5 * cm])
     data_table.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('LEFTPADDING', (0, 0), (-1, -1), 0),
     ]))
 
-    # 2. Prepara il logo (più piccolo)
     logo_path = STATIC_FOLDER / 'logo camar.jpg'
     logo = Spacer(0, 0) 
     if logo_path.exists():
-        logo = RLImage(logo_path, width=2.5 * cm, height=1.5 * cm) # Logo 2.5cm
+        logo = RLImage(logo_path, width=2.5 * cm, height=1.5 * cm)
 
-    # 3. Crea una tabella principale per mettere logo (SINISTRA) e dati (DESTRA)
     main_table = Table([[logo, data_table]], 
-                       colWidths=[3 * cm, 6.5 * cm], # 3cm per logo, 6.5cm per dati
+                       colWidths=[3 * cm, 6.5 * cm], 
                        style=[('VALIGN', (0, 0), (-1, -1), 'TOP')])
     
     story_elements.append(main_table)
     
     try:
-        # Costruisce il PDF
         doc.build(story_elements)
     except Exception as e:
         logging.error(f"Errore generazione etichetta: {e}")
