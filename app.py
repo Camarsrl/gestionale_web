@@ -144,7 +144,45 @@ def _logo_flowable(max_w=60*mm, max_h=25*mm, hAlign='LEFT'):
         return RLImage(logo_path, width=max_w, height=max_h, hAlign=hAlign)
     return Spacer(0, 0)
 
-
+# SOSTITUISCI QUESTA FUNZIONE in app.py
+@app.route('/report', methods=['GET', 'POST'])
+def report():
+    if session.get('role') != 'admin': abort(403)
+    risultato = None
+    if request.method == 'POST':
+        cliente = request.form.get('cliente')
+        mese_anno = request.form.get('mese_anno')
+        if cliente and mese_anno:
+            try:
+                anno, mese = map(int, mese_anno.split('-'))
+                ultimo_giorno_numero = calendar.monthrange(anno, mese)[1]
+                fine_mese = date(anno, mese, ultimo_giorno_numero)
+                
+                # --- INIZIO CORREZIONE ---
+                # Sostituisci '==' con 'ilike()' per una ricerca non case-sensitive
+                # Questo troverà "FINCANTIERI" anche se nel DB è salvato come "Fincantieri"
+                articoli_in_giacenza = Articolo.query.filter(
+                    Articolo.cliente.ilike(cliente), # <-- QUI È LA CORREZIONE
+                    Articolo.data_ingresso <= fine_mese,
+                    (Articolo.data_uscita == None) | (Articolo.data_uscita > fine_mese)
+                ).all()
+                # --- FINE CORREZIONE ---
+                
+                m2_totali = sum(art.m2 or 0 for art in articoli_in_giacenza)
+                if not articoli_in_giacenza:
+                    flash(f"Nessun articolo in giacenza trovato per {cliente} alla fine del periodo {mese:02d}-{anno}.", "info")
+                risultato = {
+                    "cliente": cliente, "periodo": f"{mese:02d}-{anno}",
+                    "m2_totali": round(m2_totali, 3), "conteggio_articoli": len(articoli_in_giacenza)
+                }
+            except ValueError:
+                flash("Formato data non valido.", "danger")
+    
+    # Carica la lista clienti in modo case-insensitive e unico
+    clienti_query = db.session.query(Articolo.cliente).distinct().order_by(Articolo.cliente).all()
+    clienti = [c[0] for c in clienti_query if c[0]]
+    
+    return render_template('report.html', clienti=clienti, risultato=risultato)
 # ---------- BUONO PRELIEVO (con logo) ----------
 def generate_buono_prelievo_pdf(buffer, dati_buono, articoli):
     doc = SimpleDocTemplate(
