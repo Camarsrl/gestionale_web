@@ -764,6 +764,7 @@ def ddt_finalize():
     flash(f"Articoli aggiornati con DDT N. {n_ddt}. I dati sono stati salvati.", "success")
     download_name = f'DDT_{n_ddt.replace("/", "-")}.pdf'
     return send_file(buffer, as_attachment=True, download_name=download_name, mimetype='application/pdf')
+# SOSTITUISCI QUESTA FUNZIONE in app.py
 @app.route('/ddt/setup', methods=['GET'])
 def ddt_setup():
     if session.get('role') != 'admin': abort(403)
@@ -790,13 +791,13 @@ def ddt_setup():
                 # Se è una lista (come nel tuo file), la convertiamo in dizionario
                 if isinstance(data, list):
                     for item in data:
-                        # Usa 'nome' come chiave e come 'ragione_sociale'
+                        # Usa 'nome' come chiave
                         nome_key = item.get('nome')
                         if nome_key:
                             destinatari_dict[nome_key] = {
-                                'ragione_sociale': item.get('nome', ''),
+                                'ragione_sociale': item.get('nome', ''), # Usa 'nome' se 'ragione_sociale' non c'è
                                 'indirizzo': item.get('indirizzo', ''),
-                                'piva': item.get('piva', '') # Aggiungi piva se esiste
+                                'piva': item.get('piva', '')
                             }
                 # Se è già un dizionario, lo usiamo
                 elif isinstance(data, dict):
