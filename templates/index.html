@@ -2,45 +2,43 @@
 
 {% block custom_css %}
 <style>
-  /* impedisce lo scroll dell'intera pagina */
+  /* niente scroll della pagina */
   html, body { height: 100%; overflow: hidden; }
 
-  /* layout a griglia: titolo, filtri, toolbar, tabella, footer */
-  .page-grid {
+  /* l'altezza utile si adatta a navbar/footer calcolati in JS */
+  :root { --chrome-h: 0px; }
+
+  /* griglia: titolo, filtri, toolbar, tabella (1fr), footer totali */
+  .page-grid{
     display: grid;
-    grid-template-rows: auto auto auto 1fr auto; /* l'area tabella prende tutto (1fr) */
+    grid-template-rows: auto auto auto 1fr auto;
     gap: .75rem;
-    height: calc(100vh - 56px); /* sottrae la topbar del layout; se diversa, adegua */
+    height: calc(100vh - var(--chrome-h));
     padding: 1rem;
     box-sizing: border-box;
   }
 
-  /* card filtri e barra comandi NON scrollano */
-  .filters-card, .actions-bar, .totals-bar { min-height: 0; }
+  .filters-card, .actions-bar, .totals-bar{ min-height: 0; }
 
-  /* wrapper con scroll */
-  .table-wrapper {
-    min-height: 0;                /* fondamentale in grid/flex */
-    overflow: auto;               /* scroll solo qui */
+  /* scroll SOLO qui */
+  .table-wrapper{
+    min-height: 0;            /* fondamentale in grid/flex */
+    overflow: auto;           /* scroll X e Y */
     border: 1px solid #dee2e6;
     border-radius: .25rem;
     background: #fff;
   }
 
-  /* tabella larga -> scrollbar X se necessario */
   table.table-giacenze{
     table-layout: fixed;
-    min-width: 2400px;            /* adegua alla tua ampiezza colonnare */
+    min-width: 2400px;        /* larghezza minima per forzare lo scroll orizzontale */
     width: 100%;
     border-collapse: collapse;
     font-size: .875rem;
   }
 
-  /* header sticky */
-  .table-giacenze thead th {
-    position: sticky;
-    top: 0;
-    z-index: 2;
+  .table-giacenze thead th{
+    position: sticky; top: 0; z-index: 2;
     background: #f8f9fa;
     border-bottom: 2px solid #dee2e6;
     text-align: center;
@@ -54,16 +52,15 @@
     border-bottom: 1px solid #dee2e6;
     border-left: 1px solid #dee2e6;
   }
-  .table-giacenze th:first-child, .table-giacenze td:first-child { border-left: none; }
-  .table-giacenze tbody tr:nth-child(even){ background:#f8f9fa; }
+  .table-giacenze th:first-child, .table-giacenze td:first-child{ border-left: none; }
+  .table-giacenze tbody tr:nth-child(even){ background: #f8f9fa; }
 
-  /* footer totali fissato fuori tabella */
-  .totals-bar {
-    background:#f8f9fa; border-top:1px solid #dee2e6;
+  .totals-bar{
+    background: #f8f9fa; border-top: 1px solid #dee2e6;
     padding: 8px 12px; font-size: .9rem; text-align: end;
   }
 
-  /* larghezze indicative */
+  /* larghezze colonne */
   .col-check{width:40px}.col-azioni{width:72px;text-align:center}.col-id{width:70px}
   .col-codice{width:240px}.col-desc{width:320px}
   .col-cliente,.col-fornitore{width:150px}.col-data{width:110px}.col-stato{width:100px}
@@ -95,11 +92,11 @@
         <div class="accordion-body">
           <form method="get" action="{{ url_for('visualizza_giacenze') }}">
             <div class="row g-3">
-              <!-- i tuoi campi filtro invariati -->
-              <div class="col-md-2"><label class="form-label">ID</label>
+              <div class="col-md-2">
+                <label class="form-label">ID</label>
                 <input type="text" name="id" class="form-control form-control-sm" value="{{ filters.get('id','') }}">
               </div>
-              <!-- ... (tutti gli altri input come li avevi) ... -->
+              <!-- aggiungi qui gli altri campi filtro come avevi -->
             </div>
             <hr>
             <div class="d-flex justify-content-end">
@@ -216,13 +213,32 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+  /* Calcola dinamicamente l'altezza di navbar+footer e la espone come variabile CSS */
+  const navH = document.querySelector('.navbar')?.offsetHeight || 0;
+  const footH = document.querySelector('footer')?.offsetHeight || 0;
+  document.documentElement.style.setProperty('--chrome-h', (navH + footH) + 'px');
+
+  // Se cambia il layout on resize, aggiorna
+  let rid;
+  window.addEventListener('resize', () => {
+    clearTimeout(rid);
+    rid = setTimeout(() => {
+      const nH = document.querySelector('.navbar')?.offsetHeight || 0;
+      const fH = document.querySelector('footer')?.offsetHeight || 0;
+      document.documentElement.style.setProperty('--chrome-h', (nH + fH) + 'px');
+    }, 100);
+  });
+
+  // Seleziona tutto
   const selectAll = document.getElementById('select-all');
   if (selectAll){
-    selectAll.addEventListener('change', e=>{
+    selectAll.addEventListener('change', e => {
       document.querySelectorAll('.articolo-checkbox').forEach(cb => cb.checked = e.target.checked);
     });
   }
-  const getSelectedIds = () => Array.from(document.querySelectorAll('.articolo-checkbox:checked')).map(cb => cb.value);
+
+  const getSelectedIds = () =>
+    Array.from(document.querySelectorAll('.articolo-checkbox:checked')).map(cb => cb.value);
 
   function handleBulkActionGet(baseUrl){
     const ids = getSelectedIds();
@@ -235,7 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function handleBulkActionPost(formId, idsFieldId, message, single=false){
     const ids = getSelectedIds();
     if (!ids.length) return alert("Seleziona almeno un articolo.");
-    if (single && ids.length>1) return alert("Questa azione richiede un solo articolo.");
+    if (single && ids.length > 1) return alert("Questa azione richiede un solo articolo.");
     if (confirm(message)){
       const form = document.getElementById(formId);
       const field = document.getElementById(idsFieldId);
@@ -244,18 +260,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  document.getElementById('btn-buono')?.addEventListener('click', ()=> handleBulkActionGet('{{ url_for('buono_setup') }}'));
-  document.getElementById('btn-ddt')?.addEventListener('click',   ()=> handleBulkActionGet('{{ url_for('ddt_setup') }}'));
-  document.getElementById('btn-edit-multiple')?.addEventListener('click', ()=> handleBulkActionGet('{{ url_for('edit_multiple') }}'));
-  document.getElementById('btn-create-label')?.addEventListener('click',  ()=> handleBulkActionGet('{{ url_for('etichetta_manuale') }}'));
+  document.getElementById('btn-buono')?.addEventListener('click', () => handleBulkActionGet('{{ url_for('buono_setup') }}'));
+  document.getElementById('btn-ddt')?.addEventListener('click',   () => handleBulkActionGet('{{ url_for('ddt_setup') }}'));
+  document.getElementById('btn-edit-multiple')?.addEventListener('click', () => handleBulkActionGet('{{ url_for('edit_multiple') }}'));
+  document.getElementById('btn-create-label')?.addEventListener('click',  () => handleBulkActionGet('{{ url_for('etichetta_manuale') }}'));
 
-  document.getElementById('btn-duplicate')?.addEventListener('click', ()=> handleBulkActionPost(
+  document.getElementById('btn-duplicate')?.addEventListener('click', () => handleBulkActionPost(
     'bulk-duplicate-form','duplicate_ids_field', `Duplicare ${getSelectedIds().length} articoli?`, true));
-  document.getElementById('btn-delete-selected')?.addEventListener('click', ()=> handleBulkActionPost(
+  document.getElementById('btn-delete-selected')?.addEventListener('click', () => handleBulkActionPost(
     'bulk-delete-form','delete_ids_field', `Eliminare ${getSelectedIds().length} articoli? Azione irreversibile.`, false));
 
-  // invio email (apre pagina dedicata con gli ID)
-  document.getElementById('btn-send-email')?.addEventListener('click', ()=> handleBulkActionGet('{{ url_for('email_setup') }}'));
+  document.getElementById('btn-send-email')?.addEventListener('click', () => handleBulkActionGet('{{ url_for('email_setup') }}'));
 });
 </script>
 {% endblock %}
+
