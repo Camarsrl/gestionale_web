@@ -766,84 +766,26 @@ def ddt_finalize():
     return send_file(buffer, as_attachment=True, download_name=download_name, mimetype='application/pdf')
 
 
-
-
-
-                     
-# SOSTITUISCI QUESTA FUNZIONE in app.py
-@app.route('/ddt/setup', methods=['GET'])
 def ddt_setup():
-    if session.get('role') != 'admin': abort(403)
-    ids_str = request.args.get('ids', '')
-    if not ids_str: return redirect(url_for('visualizza_giacenze'))
-    ids = [int(i) for i in ids_str.split(',')]
-    articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
-
-    articoli_gia_usciti = [art.id for art in articoli if art.data_uscita is not None]
-    if articoli_gia_usciti:
-        flash(f"Attenzione: Gli articoli ID {articoli_gia_usciti} risultano già spediti (hanno una data di uscita).", "warning")
-        articoli = [art for art in articoli if art.data_uscita is None]
-        ids_str = ','.join(map(str, [art.id for art in articoli]))
-        if not articoli:
-            return redirect(url_for('visualizza_giacenze'))
-
-    dest_path = CONFIG_FOLDER / 'destinatari_saved.json'
-    destinatari_dict = {} # <-- Useremo un dizionario
-    if dest_path.exists():
-        try:
-            with open(dest_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                # --- INIZIO CORREZIONE ---
-                # Se è una lista (come nel tuo file), la convertiamo in dizionario
-                if isinstance(data, list):
-                    for item in data:
-                        # Usa 'nome' come chiave
-                        nome_key = item.get('nome')
-                        if nome_key:
-                            destinatari_dict[nome_key] = {
-                                'ragione_sociale': item.get('nome', ''), # Usa 'nome' se 'ragione_sociale' non c'è
-                                'indirizzo': item.get('indirizzo', ''),
-                                'piva': item.get('piva', '')
-                            }
-                # Se è già un dizionario, lo usiamo
-                elif isinstance(data, dict):
-                    destinatari_dict = data
-                # --- FINE CORREZIONE ---
-        except (json.JSONDecodeError, IOError): pass
-
-    tot_colli = sum(art.n_colli or 0 for art in articoli)
-    tot_peso = sum(art.peso or 0 for art in articoli)
-
-    return render_template(
-        'ddt_setup.html',
-        articoli=articoli,
-        ids=ids_str,
-        destinatari=destinatari_dict, # <-- Passiamo il dizionario corretto
-        today=date.today().isoformat(),
-        tot_colli=tot_colli,
-        tot_peso=tot_peso
-    )
-
-@app.route('/ddt/preview', methods=['GET', 'POST'])
-def ddt_preview():
     if session.get('role') != 'admin':
         abort(403)
 
-    # Supporta GET (con ?ids=...) e POST (con hidden input)
-    ids_str = request.form.get('ids') or request.args.get('ids', '')
+    ids_str = request.args.get('ids', '')
     if not ids_str:
-        return "Errore: Articoli non specificati.", 400
-
-    try:
-        ids = [int(i) for i in ids_str.split(',') if str(i).isdigit()]
-    except ValueError:
-        return "Errore: ID non validi.", 400
-
+        return redirect(url_for('visualizza_giacenze'))
+    ids = [int(i) for i in ids_str.split(',')]
     articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
-    if not articoli:
-        return "Errore: Nessun articolo trovato.", 400
 
-    # Carica destinatari salvati
+    # avviso su articoli già usciti
+    gia_usciti = [a.id for a in articoli if a.data_uscita]
+    if gia_usciti:
+        flash(f"Attenzione: ID già spediti {gia_usciti}. Saranno esclusi.", "warning")
+        articoli = [a for a in articoli if not a.data_uscita]
+        ids_str = ','.join(str(a.id) for a in articoli)
+        if not articoli:
+            return redirect(url_for('visualizza_giacenze'))
+
+    # destinatari salvati
     dest_path = CONFIG_FOLDER / 'destinatari_saved.json'
     destinatari = {}
     if dest_path.exists():
@@ -852,18 +794,24 @@ def ddt_preview():
                 data = json.load(f)
                 if isinstance(data, dict):
                     destinatari = data
-        except (json.JSONDecodeError, IOError):
+        except Exception:
             pass
 
-    buffer = io.BytesIO()
-    ddt_data = request.form.to_dict()
-    # numero in anteprima
-    ddt_data['n_ddt'] = request.form.get('n_ddt', '(ANTEPRIMA)')
-    destinatario_scelto = destinatari.get(request.form.get('destinatario_key'), {})
+    return render_template(
+        'ddt_setup.html',
+        articoli=articoli,
+        ids=ids_str,
+        destinatari=destinatari,
+        today=date.today().isoformat(),
+        tot_colli=sum(a.n_colli or 0 for a in articoli),
+        tot_peso=sum(a.peso or 0 for a in articoli),
+        filters={}  # <<< FIX
+    )
 
-    generate_ddt_pdf(buffer, ddt_data, articoli, destinatario_scelto)
-    buffer.seek(0)
-    return send_file(buffer, as_attachment=False, download_name='ANTEPRIMA_DDT.pdf', mimetype='application/pdf')
+
+
+                     
+
 
 # SOSTITUISCI la vecchia funzione 'duplica_articolo'
 # CON QUESTA NUOVA funzione 'bulk_duplicate'
