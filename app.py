@@ -766,6 +766,10 @@ def ddt_finalize():
     return send_file(buffer, as_attachment=True, download_name=download_name, mimetype='application/pdf')
 
 
+# ======================================================
+# SETUP DDT - CREA DDT DA GIACENZE
+# ======================================================
+@app.route("/ddt/setup")
 def ddt_setup():
     if session.get('role') != 'admin':
         abort(403)
@@ -773,19 +777,19 @@ def ddt_setup():
     ids_str = request.args.get('ids', '')
     if not ids_str:
         return redirect(url_for('visualizza_giacenze'))
-    ids = [int(i) for i in ids_str.split(',')]
+
+    ids = [int(i) for i in ids_str.split(',') if i.isdigit()]
     articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
 
-    # avviso su articoli già usciti
-    gia_usciti = [a.id for a in articoli if a.data_uscita]
-    if gia_usciti:
-        flash(f"Attenzione: ID già spediti {gia_usciti}. Saranno esclusi.", "warning")
-        articoli = [a for a in articoli if not a.data_uscita]
-        ids_str = ','.join(str(a.id) for a in articoli)
+    articoli_gia_usciti = [art.id for art in articoli if art.data_uscita is not None]
+    if articoli_gia_usciti:
+        flash(f"Gli articoli ID {articoli_gia_usciti} risultano già spediti.", "warning")
+        articoli = [art for art in articoli if art.data_uscita is None]
+        ids_str = ','.join(map(str, [art.id for art in articoli]))
         if not articoli:
             return redirect(url_for('visualizza_giacenze'))
 
-    # destinatari salvati
+    # Carica i destinatari salvati
     dest_path = CONFIG_FOLDER / 'destinatari_saved.json'
     destinatari = {}
     if dest_path.exists():
@@ -797,21 +801,19 @@ def ddt_setup():
         except Exception:
             pass
 
+    tot_colli = sum(art.n_colli or 0 for art in articoli)
+    tot_peso = sum(art.peso or 0 for art in articoli)
+
     return render_template(
-        'ddt_setup.html',
+        "ddt_setup.html",
         articoli=articoli,
         ids=ids_str,
         destinatari=destinatari,
         today=date.today().isoformat(),
-        tot_colli=sum(a.n_colli or 0 for a in articoli),
-        tot_peso=sum(a.peso or 0 for a in articoli),
-        filters={}  # <<< FIX
+        tot_colli=tot_colli,
+        tot_peso=tot_peso,
+        filters={}  # ← importante per evitare errori Jinja
     )
-
-
-
-                     
-
 
 # SOSTITUISCI la vecchia funzione 'duplica_articolo'
 # CON QUESTA NUOVA funzione 'bulk_duplicate'
