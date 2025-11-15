@@ -1,6 +1,9 @@
 {% extends "layout.html" %}
 
-{% block custom_css %}
+{# Il blocco custom_css è stato rimosso da qui #}
+
+{% block content %}
+
 <style>
     /* Imposta la pagina per avere la tabella con scroll indipendente */
     .page-wrapper {
@@ -9,6 +12,7 @@
         height: calc(100vh - 120px); /* Altezza calcolata per riempire lo schermo meno header/footer */
         overflow: hidden; /* Impedisce lo scroll dell'intera pagina */
         padding: 1rem; /* Aggiunge un po' d'aria intorno */
+        width: 100%; /* Impedisce lo scroll orizzontale della pagina */
     }
 
     /* Card dei filtri non si espande verticalmente */
@@ -92,9 +96,6 @@
     .col-nsrif, .col-narrivo { width: 150px; }
     .col-serial, .col-posizione, .col-mezzo { width: 180px; }
 </style>
-{% endblock %}
-
-{% block content %}
 <div class="page-wrapper">
 
     <div class="d-flex justify-content-between align-items-center mb-3">
