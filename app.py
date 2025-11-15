@@ -767,7 +767,6 @@ def ddt_finalize():
 
 
 @app.route("/ddt/setup")
-@login_required
 def ddt_setup():
     ids = request.args.get("ids", "")
     if not ids:
