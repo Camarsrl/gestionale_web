@@ -766,57 +766,34 @@ def ddt_finalize():
     return send_file(buffer, as_attachment=True, download_name=download_name, mimetype='application/pdf')
 
 
-# ======================================================
-# SETUP DDT - CREA DDT DA GIACENZE
-# ======================================================
 @app.route("/ddt/setup")
+@login_required
 def ddt_setup():
-    if session.get('role') != 'admin':
-        abort(403)
+    ids = request.args.get("ids", "")
+    if not ids:
+        return redirect(url_for("visualizza_giacenze"))
 
-    ids_str = request.args.get('ids', '')
-    if not ids_str:
-        return redirect(url_for('visualizza_giacenze'))
+    id_list = [int(x) for x in ids.split(",") if x.isdigit()]
+    if not id_list:
+        return redirect(url_for("visualizza_giacenze"))
 
-    ids = [int(i) for i in ids_str.split(',') if i.isdigit()]
-    articoli = Articolo.query.filter(Articolo.id.in_(ids)).all()
+    # Carica articoli selezionati
+    articoli = Articolo.query.filter(Articolo.id.in_(id_list)).all()
 
-    articoli_gia_usciti = [art.id for art in articoli if art.data_uscita is not None]
-    if articoli_gia_usciti:
-        flash(f"Gli articoli ID {articoli_gia_usciti} risultano già spediti.", "warning")
-        articoli = [art for art in articoli if art.data_uscita is None]
-        ids_str = ','.join(map(str, [art.id for art in articoli]))
-        if not articoli:
-            return redirect(url_for('visualizza_giacenze'))
-
-    # Carica i destinatari salvati
-    dest_path = CONFIG_FOLDER / 'destinatari_saved.json'
-    destinatari = {}
-    if dest_path.exists():
-        try:
-            with open(dest_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                if isinstance(data, dict):
-                    destinatari = data
-        except Exception:
-            pass
-
-    tot_colli = sum(art.n_colli or 0 for art in articoli)
-    tot_peso = sum(art.peso or 0 for art in articoli)
+    # Calcola totali per tabella
+    totali = {
+        "colli": sum(a.n_colli or 0 for a in articoli),
+        "peso": sum(a.peso or 0 for a in articoli),
+        "m2": sum(a.m2 or 0 for a in articoli),
+        "m3": sum(a.m3 or 0 for a in articoli)
+    }
 
     return render_template(
         "ddt_setup.html",
         articoli=articoli,
-        ids=ids_str,
-        destinatari=destinatari,
-        today=date.today().isoformat(),
-        tot_colli=tot_colli,
-        tot_peso=tot_peso,
-        filters={}  # ← importante per evitare errori Jinja
+        totali=totali,
+        ids=ids
     )
-
-# SOSTITUISCI la vecchia funzione 'duplica_articolo'
-# CON QUESTA NUOVA funzione 'bulk_duplicate'
 
 @app.route('/bulk/duplicate', methods=['POST'])
 def bulk_duplicate():
